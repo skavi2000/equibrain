@@ -9,7 +9,7 @@ import {
     Message
 } from "@/types/equimind";
 
-const API_Base_URL = process.env.NEXT_PUBLIC_API_URL || "https://equimind-chat-agent-api-1.onrender.com";
+const API_Base_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
 function getUserId(): string | null {
     if (typeof window === "undefined") return null;
