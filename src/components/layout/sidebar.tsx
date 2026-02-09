@@ -6,6 +6,7 @@ import { Home, Bookmark, Globe, Brain, Compass } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuthStore } from "@/stores/auth-store";
 
 interface NavItem {
   label: string;
@@ -45,6 +46,7 @@ const navItems: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useAuthStore();
 
   const isActive = (href: string) => {
     if (href === "/dashboard") {
@@ -122,18 +124,15 @@ export function Sidebar() {
       <div className="border-t p-3 shrink-0">
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
-            <AvatarImage
-              src="https://images.unsplash.com/photo-1568585105565-e372998a195d?auto=format&fit=crop&q=80&w=100&h=100"
-              alt="Gihan D."
-              asChild={false}
-            />
-            <AvatarFallback>GD</AvatarFallback>
+            <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-medium">
+              {user?.initials || "U"}
+            </AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
             <span className="text-sm font-medium text-[#1A1D23]">
-              Gihan D.
+              {user?.name || "User"}
             </span>
-            <span className="text-xs text-[#6B7280]">LKR 2,847,350.00</span>
+            <span className="text-xs text-[#6B7280]">{user?.email || ""}</span>
           </div>
         </div>
       </div>

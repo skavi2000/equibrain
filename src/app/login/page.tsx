@@ -2,19 +2,39 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useAuthStore } from "@/stores/auth-store";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const router = useRouter();
+  const { login, isLoading, error } = useAuthStore();
 
-  const handleLogin = () => {
-    toast.success("Welcome back to Equibrain!");
-    router.push("/dashboard");
+  const handleLogin = async () => {
+    if (!username.trim() || !password.trim()) {
+      toast.error("Please enter both username and password");
+      return;
+    }
+
+    const success = await login(username, password);
+    if (success) {
+      toast.success("Welcome back to Equibrain!");
+      router.push("/dashboard");
+    } else {
+      toast.error(useAuthStore.getState().error || "Login failed");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleLogin();
+    }
   };
 
   return (
@@ -41,11 +61,15 @@ export default function LoginPage() {
           <div className="space-y-5">
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
-                Email Address
+                Username
               </label>
               <Input
-                type="email"
-                placeholder="name@company.com"
+                type="text"
+                placeholder="Enter your username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isLoading}
                 className="h-12 bg-gray-50 border-gray-200 focus:border-[#2563EB] focus:bg-white transition-all"
               />
             </div>
@@ -58,6 +82,10 @@ export default function LoginPage() {
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={isLoading}
                   className="h-12 bg-gray-50 border-gray-200 focus:border-[#2563EB] focus:bg-white pr-10 transition-all"
                 />
                 <button
@@ -70,6 +98,10 @@ export default function LoginPage() {
               </div>
             </div>
 
+            {error && (
+              <p className="text-sm text-red-600 font-medium">{error}</p>
+            )}
+
             <div className="flex items-center pt-1">
               <Checkbox id="remember" />
               <label htmlFor="remember" className="ml-2 text-sm text-gray-600 cursor-pointer">
@@ -79,9 +111,17 @@ export default function LoginPage() {
 
             <Button
               onClick={handleLogin}
-              className="w-full h-12 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold rounded-lg shadow-lg shadow-[#2563EB]/20 active:scale-[0.99] transition-all text-base"
+              disabled={isLoading}
+              className="w-full h-12 bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold rounded-lg shadow-lg shadow-[#2563EB]/20 active:scale-[0.99] transition-all text-base disabled:opacity-70"
             >
-              Sign In
+              {isLoading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 size={18} className="animate-spin" />
+                  Signing in...
+                </span>
+              ) : (
+                "Sign In"
+              )}
             </Button>
           </div>
         </div>

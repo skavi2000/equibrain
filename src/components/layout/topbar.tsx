@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
 
 const recentSearches = [
   "AAPL - Apple Inc.",
@@ -58,6 +59,7 @@ export function Topbar() {
   const router = useRouter();
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const { user, logout } = useAuthStore();
 
   return (
     <header className="h-12 border-b border-[#E2E6EA] bg-white flex items-center justify-between px-6 z-50 relative shrink-0">
@@ -169,16 +171,16 @@ export function Topbar() {
             <button className="flex items-center gap-2 hover:bg-gray-50 rounded-md px-2 py-1 transition-colors">
               <div className="text-right hidden sm:block">
                 <p className="text-xs font-medium text-gray-900 leading-tight">
-                  Gihan D.
+                  {user?.name || "User"}
                 </p>
                 <p className="text-[10px] text-gray-500 leading-tight">
-                  LKR 2,847,350.00
+                  {user?.email || ""}
                 </p>
               </div>
               <Avatar className="h-7 w-7">
-                <AvatarImage src="" alt="Gihan D." />
+                <AvatarImage src="" alt={user?.name || "User"} />
                 <AvatarFallback className="bg-blue-100 text-blue-700 text-xs font-medium">
-                  GD
+                  {user?.initials || "U"}
                 </AvatarFallback>
               </Avatar>
             </button>
@@ -199,7 +201,7 @@ export function Topbar() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="cursor-pointer text-red-600 focus:text-red-600"
-              onClick={() => router.push("/login")}
+              onClick={() => { logout(); router.push("/login"); }}
             >
               <LogOut className="mr-2 h-4 w-4" />
               Log Out

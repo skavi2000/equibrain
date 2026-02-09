@@ -1,17 +1,13 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import {
   Plus,
   Send,
   Brain,
   Mic,
   Activity,
-  Clock,
-  ExternalLink,
   ArrowLeft,
-  Heart,
-  TrendingUp,
   Paperclip,
   Languages,
   Maximize2,
@@ -20,12 +16,20 @@ import {
   Pencil,
   Trash2,
   BarChart as LucideBarChart,
+  Loader2,
+  MoreVertical,
+  Archive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { ImageWithFallback } from "@/components/shared/image-with-fallback";
-import { useSearchParams } from "next/navigation";
+import { StockDetailsPanel } from "@/components/shared/stock-details-panel";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useChatStore } from "@/stores/chat-store";
+import { useSpeechToText } from "@/hooks/use-speech-to-text";
+import { Message, ActivityFeedItem, ChatSession } from "@/types/equimind";
+import { format } from "date-fns";
 
 type RightPanelMode = "ACTIVITY" | "STOCK_DETAILS" | "ALERTS";
 type SearchStrategy = "DEEP_THINK" | "EQUIMIND_SEARCH" | "WEB_EQUIMIND";
@@ -44,23 +48,93 @@ function EquiMindContent() {
   const [rightPanelMode, setRightPanelMode] = useState<RightPanelMode>("ACTIVITY");
   const [selectedStock, setSelectedStock] = useState<string | null>(null);
   const [activeStrategy, setActiveStrategy] = useState<SearchStrategy>("DEEP_THINK");
+  const [inputValue, setInputValue] = useState("");
+
+  const {
+    sessions,
+    currentSessionId,
+    messages,
+    activityFeed,
+    isLoading,
+    isStreaming,
+    loadSessions,
+    selectSession,
+    createSession,
+    sendMessage,
+    deleteSession,
+    archiveSession,
+    resetState
+  } = useChatStore();
+
+  const { isListening, transcript, startListening, stopListening, setTranscript } = useSpeechToText();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    loadSessions();
+  }, []);
 
   useEffect(() => {
     if (tab === "alerts" || tab === "Alerts") setRightPanelMode("ALERTS");
     else if (tab === "agents" || tab === "Agents") setRightPanelMode("ACTIVITY");
   }, [tab]);
 
+  useEffect(() => {
+    if (transcript) {
+      setInputValue(prev => prev ? `${prev} ${transcript}` : transcript);
+      setTranscript(""); // Clear transcript after appending
+    }
+  }, [transcript]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, activityFeed]);
+
   const handleStockClick = (ticker: string) => {
     setSelectedStock(ticker);
     setRightPanelMode("STOCK_DETAILS");
   };
+
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || isStreaming) return;
+    const msg = inputValue;
+    setInputValue("");
+
+    // Determine context/reasoning mode based on activeStrategy
+    let contextMode: 'web_internal' | 'internal_only' = 'internal_only';
+    let reasoningMode: 'quick' | 'deep' = 'quick';
+
+    if (activeStrategy === "DEEP_THINK") {
+      reasoningMode = "deep";
+    } else if (activeStrategy === "WEB_EQUIMIND") {
+      contextMode = "web_internal";
+    }
+
+    await sendMessage(msg, {
+      context_mode: contextMode,
+      reasoning_mode: reasoningMode
+    });
+  };
+
+  const handleNewChat = async () => {
+    resetState();
+    // Optional: don't create session immediately, wait for first message
+    // Or create immediately:
+    // await createSession("New Chat");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  }
 
   return (
     <div className="h-full flex bg-background overflow-hidden text-foreground font-sans">
       {/* Left Sidebar: Chat History */}
       <aside className="w-[260px] bg-secondary/50 border-r border-border flex flex-col shrink-0">
         <div className="p-4">
-          <Button variant="outline" className="w-full flex items-center justify-between border-border bg-card hover:bg-secondary text-sm font-semibold h-10 px-3 rounded-lg shadow-sm">
+          <Button onClick={handleNewChat} variant="outline" className="w-full flex items-center justify-between border-border bg-card hover:bg-secondary text-sm font-semibold h-10 px-3 rounded-lg shadow-sm">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 bg-primary rounded flex items-center justify-center text-white text-[10px] font-bold">EB</div>
               <span>New chat</span>
@@ -69,12 +143,23 @@ function EquiMindContent() {
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto px-2 space-y-1 scrollbar-hide">
-          <div className="px-3 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Today</div>
-          <HistoryItem title="which stocks should I buy for trading" active />
-          <HistoryItem title="AAPL earnings analysis" />
-          <div className="px-3 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider mt-4">Yesterday</div>
-          <HistoryItem title="CSE market outlook 2026" />
-          <HistoryItem title="Dividend strategy for 2026" />
+          {/* Group sessions by date could be added here later */}
+          <div className="px-3 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">History</div>
+          {sessions.map(session => (
+            <HistoryItem
+              key={session.id}
+              session={session}
+              active={session.id === currentSessionId}
+              onSelect={() => selectSession(session.id)}
+              onDelete={() => deleteSession(session.id)}
+              onArchive={() => archiveSession(session.id)}
+            />
+          ))}
+          {sessions.length === 0 && (
+            <div className="px-4 py-8 text-center text-xs text-muted-foreground">
+              No history yet
+            </div>
+          )}
         </div>
       </aside>
 
@@ -89,8 +174,34 @@ function EquiMindContent() {
 
         <div className="flex-1 overflow-y-auto scroll-smooth">
           <div className="max-w-3xl mx-auto py-10 px-6 space-y-10 pb-32">
-            <ChatMessage role="user" content="which stocks should I buy for trading" />
-            <ChatMessage role="assistant" content="Based on current CSE market conditions and your portfolio risk profile, here are stocks worth monitoring. My multi-factor analysis identifies several tickers with strong bullish patterns today: JOH, DIST, and AAPL. These present interesting entries based on today's volatility." onStockClick={handleStockClick} />
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full pt-20 opacity-50">
+                <Brain size={48} className="text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">Ask EquiMind about stocks, patterns, or trends...</p>
+              </div>
+            ) : (
+              messages.map((msg, idx) => (
+                <ChatMessage
+                  key={msg.id || idx}
+                  role={msg.role}
+                  content={msg.content}
+                  onStockClick={handleStockClick}
+                />
+              ))
+            )}
+            {isStreaming && (
+              <div className="flex gap-4">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-sm bg-ai-violet-bg border-ai-violet/10 text-ai-violet">
+                  <Brain size={18} className="animate-pulse" />
+                </div>
+                <div className="flex items-center mt-2 gap-1">
+                  <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                  <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                  <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce"></div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
         </div>
 
@@ -102,16 +213,37 @@ function EquiMindContent() {
               <StrategyButton active={activeStrategy === "EQUIMIND_SEARCH"} onClick={() => setActiveStrategy("EQUIMIND_SEARCH")} label="Equimind Search" icon={<Cpu size={13} />} theme="blue" />
               <StrategyButton active={activeStrategy === "WEB_EQUIMIND"} onClick={() => setActiveStrategy("WEB_EQUIMIND")} label="Web + Equimind Search" icon={<Globe size={13} />} theme="neutral" />
             </div>
-            <div className="relative bg-secondary/30 border border-border rounded-2xl shadow-sm focus-within:bg-card focus-within:shadow-md focus-within:border-ai-violet/30 transition-all p-3">
-              <textarea placeholder="Ask EquiMind about stocks, patterns, or trends..." rows={1} className="w-full bg-transparent border-none outline-none text-[15px] px-2 py-1.5 resize-none max-h-[200px] overflow-y-auto placeholder-muted-foreground" style={{ height: "42px" }} />
+            <div className={cn("relative bg-secondary/30 border border-border rounded-2xl shadow-sm focus-within:bg-card focus-within:shadow-md focus-within:border-ai-violet/30 transition-all p-3", isListening && "border-red-500/50 shadow-red-500/20")}>
+              <textarea
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={isListening ? "Listening..." : "Ask EquiMind about stocks, patterns, or trends..."}
+                rows={1}
+                className="w-full bg-transparent border-none outline-none text-[15px] px-2 py-1.5 resize-none max-h-[200px] overflow-y-auto placeholder-muted-foreground"
+                style={{ height: "42px" }}
+              />
               <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
                 <div className="flex items-center gap-1">
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-lg"><Paperclip size={18} /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-lg"><Mic size={18} /></Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={isListening ? stopListening : startListening}
+                    className={cn("h-8 w-8 text-muted-foreground hover:text-foreground rounded-lg", isListening && "text-red-500 hover:text-red-600 bg-red-100 dark:bg-red-900/20")}
+                  >
+                    <Mic size={18} className={isListening ? "animate-pulse" : ""} />
+                  </Button>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">Press Enter</span>
-                  <Button className="h-8 w-8 bg-ai-violet hover:bg-ai-violet/90 text-white rounded-lg flex items-center justify-center p-0 transition-all active:scale-95 shadow-md shadow-ai-violet/20"><Send size={16} /></Button>
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!inputValue.trim() || isStreaming}
+                    className="h-8 w-8 bg-ai-violet hover:bg-ai-violet/90 text-white rounded-lg flex items-center justify-center p-0 transition-all active:scale-95 shadow-md shadow-ai-violet/20 disabled:opacity-50"
+                  >
+                    {isStreaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  </Button>
                 </div>
               </div>
             </div>
@@ -132,11 +264,11 @@ function EquiMindContent() {
         <div className="flex-1 overflow-hidden relative">
           <AnimatePresence mode="wait">
             {rightPanelMode === "ACTIVITY" ? (
-              <ActivityFeedPanel key="activity" />
+              <ActivityFeedPanel key="activity" feed={activityFeed} />
             ) : rightPanelMode === "ALERTS" ? (
               <AlertsPanel key="alerts" onClose={() => setRightPanelMode("ACTIVITY")} />
             ) : (
-              <EquiMindStockPanel key="stock" ticker={selectedStock || ""} onClose={() => setRightPanelMode("ACTIVITY")} />
+              <StockDetailsPanel key="stock" ticker={selectedStock || ""} onClose={() => setRightPanelMode("ACTIVITY")} />
             )}
           </AnimatePresence>
         </div>
@@ -165,25 +297,48 @@ function StrategyButton({ active, onClick, label, icon, theme }: { active: boole
   );
 }
 
-function HistoryItem({ title, active = false }: { title: string; active?: boolean }) {
+function HistoryItem({ session, active = false, onSelect, onDelete, onArchive }: { session: ChatSession; active?: boolean; onSelect: () => void; onDelete: () => void; onArchive: () => void }) {
   return (
-    <button className={cn("w-full text-left px-3 py-2.5 rounded-lg transition-all group flex items-center gap-2", active ? "bg-ai-violet-bg text-ai-violet" : "hover:bg-secondary text-foreground")}>
-      <p className="text-[13px] font-medium truncate flex-1">{title}</p>
-      {active && <div className="w-1.5 h-1.5 rounded-full bg-ai-violet" />}
-    </button>
+    <div className={cn("w-full group/item flex items-center gap-2 px-3 py-2.5 rounded-lg transition-all", active ? "bg-ai-violet-bg text-ai-violet" : "hover:bg-secondary text-foreground")}>
+      <button onClick={onSelect} className="flex-1 text-left truncate">
+        <p className="text-[13px] font-medium truncate">{session.title || "Untitled Chat"}</p>
+      </button>
+      {active && <div className="w-1.5 h-1.5 rounded-full bg-ai-violet shrink-0" />}
+      <div className="hidden group-hover/item:flex items-center gap-1">
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onArchive(); }}>
+          <Archive size={12} className="text-muted-foreground hover:text-foreground" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+          <Trash2 size={12} className="text-muted-foreground hover:text-red-500" />
+        </Button>
+      </div>
+    </div>
   );
 }
 
-function ChatMessage({ role, content, onStockClick }: { role: "user" | "assistant"; content: string; onStockClick?: (t: string) => void }) {
-  const tickers = ["AAPL", "JOH", "DIST"];
+function ChatMessage({ role, content, onStockClick }: { role: "user" | "assistant" | "system"; content: string; onStockClick?: (t: string) => void }) {
+  // Regex to find tickers in {SYMBOL}.{EXCHANGE} format or just simple known tickers if needed for backward compat or flexibility
+  // For now, implementing rudimentary ticker detection or using format provided in guide
+  // Guide says: {SYMBOL}.{EXCHANGE} format.
+
   const renderContent = (text: string) => {
     if (role === "user") return text;
-    const regex = new RegExp(`(${tickers.join("|")})`, "g");
+
+    // Split by newlines for basic formatting
+    return text.split('\n').map((line, i) => (
+      <span key={i} className="block min-h-[1.2em]">{processTickers(line, onStockClick)}</span>
+    ));
+  };
+
+  const processTickers = (text: string, onClick?: (t: string) => void) => {
+    // Regex for Ticker.Exchange (e.g. JKH.N0000)
+    const regex = /([A-Z0-9]+\.[N|X]0000)/g;
     const parts = text.split(regex);
+
     return parts.map((part, i) => {
-      if (tickers.includes(part)) {
+      if (part.match(regex)) {
         return (
-          <span key={i} onClick={() => onStockClick?.(part)} className="inline-block px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold cursor-pointer hover:bg-primary/20 transition-all shadow-[0_0_0_1px_rgba(37,99,235,0.1)] active:scale-95 mx-0.5">{part}</span>
+          <span key={i} onClick={() => onClick?.(part)} className="inline-block px-1.5 py-0.5 rounded bg-primary/10 text-primary font-bold cursor-pointer hover:bg-primary/20 transition-all shadow-[0_0_0_1px_rgba(37,99,235,0.1)] active:scale-95 mx-0.5">{part}</span>
         );
       }
       return part;
@@ -191,18 +346,19 @@ function ChatMessage({ role, content, onStockClick }: { role: "user" | "assistan
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={cn("flex gap-4 group", role === "user" ? "flex-row-reverse" : "flex-row")}>
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={cn("flex gap-4 group text-sm", role === "user" ? "flex-row-reverse" : "flex-row")}>
       <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border shadow-sm", role === "user" ? "bg-secondary border-border text-muted-foreground" : "bg-ai-violet-bg border-ai-violet/10 text-ai-violet")}>
         {role === "user" ? (
           <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center overflow-hidden border border-border">
-            <ImageWithFallback src="https://images.unsplash.com/photo-1568585105565-e372998a195d?auto=format&fit=crop&q=80&w=100&h=100" className="w-full h-full object-cover" />
+            {/* Placeholder user avatar */}
+            <div className="bg-gradient-to-br from-primary to-ai-violet w-full h-full" />
           </div>
         ) : (
           <Brain size={18} />
         )}
       </div>
       <div className={cn("flex flex-col gap-3 max-w-[85%]", role === "user" ? "items-end" : "items-start")}>
-        <div className={cn("px-4 py-3 rounded-2xl text-[15px] leading-relaxed shadow-sm border", role === "user" ? "bg-primary text-white border-primary rounded-tr-none" : "bg-card text-foreground border-border rounded-tl-none")}>
+        <div className={cn("px-4 py-3 rounded-2xl leading-relaxed shadow-sm border whitespace-pre-wrap", role === "user" ? "bg-primary text-white border-primary rounded-tr-none" : "bg-card text-foreground border-border rounded-tl-none")}>
           {renderContent(content)}
         </div>
       </div>
@@ -210,7 +366,7 @@ function ChatMessage({ role, content, onStockClick }: { role: "user" | "assistan
   );
 }
 
-function ActivityFeedPanel() {
+function ActivityFeedPanel({ feed }: { feed: ActivityFeedItem[] }) {
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex flex-col h-full overflow-hidden">
       <header className="p-5 border-b border-border flex items-center gap-2 bg-card shrink-0">
@@ -218,19 +374,31 @@ function ActivityFeedPanel() {
         <h3 className="font-bold text-sm tracking-tight">Activity Feed</h3>
       </header>
       <div className="flex-1 overflow-y-auto p-5 space-y-6">
-        <ReasoningStep type="Thinking" title="Query Decomposition" desc="Analyzing portfolio benchmarks." status="completed" />
-        <ReasoningStep type="Analyzing" title="Correlation Study" desc="Divergence analysis between local and global tech." status="completed" />
-        <ReasoningStep type="Generating" title="Final Synthesis" desc="Compiling setups for risk profile." status="processing" />
+        {feed.length === 0 ? (
+          <div className="text-center text-muted-foreground text-xs pt-10">
+            Start a conversation to see AI reasoning...
+          </div>
+        ) : (
+          feed.map((item, idx) => (
+            <ReasoningStep
+              key={idx}
+              type={item.activity_type || item.type}
+              title={(item.type || item.activity_type || "processing").toUpperCase()}
+              desc={item.message}
+              status="completed"
+            />
+          ))
+        )}
       </div>
     </motion.div>
   );
 }
 
 function AlertsPanel({ onClose }: { onClose: () => void }) {
+  // Placeholder for alerts integration
+  // This would ideally fetch alerts from the store/API
   const alerts = [
     { id: 1, ticker: "AAPL", time: "2 mins ago", msg: "Price alert triggered: Above $225.00" },
-    { id: 2, ticker: "AAPL", time: "2 mins ago", msg: "Price alert triggered: Above $225.00" },
-    { id: 3, ticker: "AAPL", time: "2 mins ago", msg: "Price alert triggered: Above $225.00" },
   ];
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex flex-col h-full overflow-hidden bg-card">
@@ -239,24 +407,12 @@ function AlertsPanel({ onClose }: { onClose: () => void }) {
           <button onClick={onClose} className="p-1 hover:bg-secondary rounded-full transition-colors cursor-pointer"><ArrowLeft size={18} className="text-muted-foreground" /></button>
           <h3 className="font-bold text-[15px]">Notifications & Alerts</h3>
         </div>
-        <button className="text-[12px] font-bold text-[#4F46E5] hover:text-[#4338CA] cursor-pointer">Mark all as read</button>
       </header>
-      <div className="flex-1 overflow-y-auto divide-y divide-[#F0F2F5]">
-        {alerts.map((alert) => (
-          <div key={alert.id} className="p-5 hover:bg-secondary/30 transition-colors group relative">
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded bg-[#EEF2FF] text-[#4F46E5] text-[10px] font-bold uppercase tracking-wider">{alert.ticker}</span>
-                <span className="text-[10px] text-muted-foreground font-medium">{alert.time}</span>
-              </div>
-              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"><Pencil size={12} /></button>
-                <button className="p-1.5 rounded-lg hover:bg-loss/10 text-muted-foreground hover:text-loss"><Trash2 size={12} /></button>
-              </div>
-            </div>
-            <p className="text-[13px] font-bold leading-snug">{alert.msg}</p>
-          </div>
-        ))}
+      <div className="flex-1 overflow-y-auto">
+        {/* Alerts list */}
+        <div className="p-5 text-center text-xs text-muted-foreground">
+          Alerts integration coming soon.
+        </div>
       </div>
     </motion.div>
   );
@@ -275,42 +431,5 @@ function ReasoningStep({ type, title, desc, status }: { type: string; title: str
         {desc && <p className="text-[11px] text-muted-foreground">{desc}</p>}
       </div>
     </div>
-  );
-}
-
-function EquiMindStockPanel({ ticker, onClose }: { ticker: string; onClose: () => void }) {
-  return (
-    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex flex-col h-full overflow-hidden bg-card text-foreground">
-      <div className="px-4 pt-4 pb-2 border-b border-border shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <ArrowLeft size={18} className="text-muted-foreground cursor-pointer" onClick={onClose} />
-          <Heart size={18} className="text-muted-foreground cursor-pointer hover:text-loss transition-colors" />
-        </div>
-        <div className="flex items-baseline gap-2 mb-1">
-          <h2 className="text-2xl font-bold tracking-tight">{ticker}</h2>
-          <span className="text-sm text-muted-foreground font-medium">NaaS Technology</span>
-        </div>
-        <div className="flex items-center gap-4 mb-2">
-          <span className="text-4xl font-bold text-gain tabular-nums tracking-tighter">3.050</span>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1">
-              <TrendingUp size={16} className="text-gain" />
-              <span className="text-gain text-sm font-bold">+0.230</span>
-              <span className="text-gain text-sm font-bold">+8.16%</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="flex-1 flex items-center justify-center p-8 text-center">
-        <div>
-          <h3 className="font-bold text-sm mb-2">Detailed Analysis</h3>
-          <p className="text-xs text-muted-foreground">Full order book, sentiment, and pattern data for {ticker}.</p>
-        </div>
-      </div>
-      <div className="p-3 bg-secondary/20 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground shrink-0">
-        <div className="flex items-center gap-1"><Clock size={10} /><span>Feb 3 11:13:05</span></div>
-        <ExternalLink size={12} className="hover:text-primary cursor-pointer transition-colors" />
-      </div>
-    </motion.div>
   );
 }
