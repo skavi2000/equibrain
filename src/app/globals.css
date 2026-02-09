@@ -1,0 +1,123 @@
+@import 'tailwindcss' source(none);
+@source '../**/*.{js,ts,jsx,tsx}';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #FAFBFC;
+  --foreground: #1A1D23;
+  --card: #FFFFFF;
+  --card-foreground: #1A1D23;
+  --popover: #FFFFFF;
+  --popover-foreground: #1A1D23;
+  --primary: #2563EB;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F0F2F5;
+  --secondary-foreground: #1A1D23;
+  --muted: #E2E6EA;
+  --muted-foreground: #6B7280;
+  --accent: #EFF6FF;
+  --accent-foreground: #2563EB;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: #E2E6EA;
+  --input: #F0F2F5;
+  --input-background: #F0F2F5;
+  --ring: #2563EB;
+  --radius: 10px;
+
+  /* AI Violet */
+  --ai-violet: #7C3AED;
+  --ai-violet-bg: #F5F3FF;
+
+  /* Gains/Losses */
+  --gain: #16A34A;
+  --gain-bg: #DCFCE7;
+  --loss: #DC2626;
+  --loss-bg: #FEE2E2;
+  --warning: #D97706;
+  --warning-bg: #FEF3C7;
+}
+
+.dark {
+  --background: #0A0D14;
+  --foreground: #F9FAFB;
+  --card: #1A1D23;
+  --card-foreground: #F9FAFB;
+  --popover: #1A1D23;
+  --popover-foreground: #F9FAFB;
+  --primary: #3B82F6;
+  --primary-foreground: #FFFFFF;
+  --secondary: #27272A;
+  --secondary-foreground: #F9FAFB;
+  --muted: #3F3F46;
+  --muted-foreground: #A1A1AA;
+  --accent: #1E3A8A;
+  --accent-foreground: #3B82F6;
+  --border: #3F3F46;
+  --input: #27272A;
+  --input-background: #27272A;
+  --ring: #3B82F6;
+  --ai-violet: #A78BFA;
+  --ai-violet-bg: #1E1B4B;
+  --gain: #4ADE80;
+  --gain-bg: #14532D;
+  --loss: #F87171;
+  --loss-bg: #7F1D1D;
+  --warning: #FBBF24;
+  --warning-bg: #78350F;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ai-violet: var(--ai-violet);
+  --color-ai-violet-bg: var(--ai-violet-bg);
+  --color-gain: var(--gain);
+  --color-gain-bg: var(--gain-bg);
+  --color-loss: var(--loss);
+  --color-loss-bg: var(--loss-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --radius-lg: var(--radius);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+/* Scrollbar hiding utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
