@@ -19,6 +19,7 @@ import {
   Loader2,
   MoreVertical,
   Archive,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -129,17 +130,32 @@ function EquiMindContent() {
     }
   }
 
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
+
+  // Responsive check could initially set these based on window width if using a hook, or accept default true.
+  // For mobile-friendliness, we can also use media queries in classes.
+
   return (
-    <div className="h-full flex bg-background overflow-hidden text-foreground font-sans">
+    <div className="h-full flex bg-background overflow-hidden text-foreground font-sans relative">
       {/* Left Sidebar: Chat History */}
-      <aside className="w-[260px] bg-secondary/50 border-r border-border flex flex-col shrink-0">
-        <div className="p-4">
-          <Button onClick={handleNewChat} variant="outline" className="w-full flex items-center justify-between border-border bg-card hover:bg-secondary text-sm font-semibold h-10 px-3 rounded-lg shadow-sm">
+      <aside
+        className={cn(
+          "bg-secondary/50 border-r border-border flex flex-col shrink-0 transition-all duration-300 ease-in-out absolute md:relative z-20 h-full",
+          isLeftPanelOpen ? "w-[260px] translate-x-0" : "w-0 -translate-x-full md:w-0 md:translate-x-0 opacity-0 overflow-hidden"
+        )}
+      >
+        <div className="p-4 flex items-center justify-between">
+          <Button onClick={handleNewChat} variant="outline" className="flex-1 flex items-center justify-between border-border bg-card hover:bg-secondary text-sm font-semibold h-10 px-3 rounded-lg shadow-sm mr-2">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 bg-primary rounded flex items-center justify-center text-white text-[10px] font-bold">EB</div>
-              <span>New chat</span>
+              <span className="truncate">New chat</span>
             </div>
-            <Plus size={16} className="text-muted-foreground" />
+            <Plus size={16} className="text-muted-foreground shrink-0" />
+          </Button>
+          {/* Mobile close button */}
+          <Button variant="ghost" size="icon" className="md:hidden h-8 w-8" onClick={() => setIsLeftPanelOpen(false)}>
+            <ArrowLeft size={18} />
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto px-2 space-y-1 scrollbar-hide">
@@ -150,7 +166,7 @@ function EquiMindContent() {
               key={session.id}
               session={session}
               active={session.id === currentSessionId}
-              onSelect={() => selectSession(session.id)}
+              onSelect={() => { selectSession(session.id); if (window.innerWidth < 768) setIsLeftPanelOpen(false); }}
               onDelete={() => deleteSession(session.id)}
               onArchive={() => archiveSession(session.id)}
             />
@@ -164,20 +180,36 @@ function EquiMindContent() {
       </aside>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col relative min-w-0 bg-background">
-        <header className="h-14 border-b border-border flex items-center justify-end px-6 shrink-0 bg-background/80 backdrop-blur-md z-10">
-          <div className="flex items-center gap-3">
+      <div className="flex-1 flex flex-col relative min-w-0 bg-background transition-all">
+        <header className="h-14 border-b border-border flex items-center justify-between px-4 shrink-0 bg-background/80 backdrop-blur-md z-10">
+          <div className="flex items-center gap-2">
+            {!isLeftPanelOpen && (
+              <Button variant="ghost" size="icon" onClick={() => setIsLeftPanelOpen(true)} className="text-muted-foreground hover:text-foreground h-9 w-9">
+                <MoreVertical size={18} className="rotate-90" />
+              </Button>
+            )}
+            <h2 className="font-semibold text-sm hidden sm:block">EquiMind Chat</h2>
+          </div>
+          <div className="flex items-center gap-2">
+
             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground h-9 w-9"><Languages size={18} /></Button>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground h-9 w-9"><Maximize2 size={18} /></Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
+              className={cn("text-muted-foreground hover:text-foreground h-9 w-9", isRightPanelOpen && "bg-secondary text-primary")}
+            >
+              <Maximize2 size={18} />
+            </Button>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto scroll-smooth">
-          <div className="max-w-3xl mx-auto py-10 px-6 space-y-10 pb-32">
+          <div className="max-w-3xl mx-auto py-10 px-6 space-y-10 pb-64">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full pt-20 opacity-50">
                 <Brain size={48} className="text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">Ask EquiMind about stocks, patterns, or trends...</p>
+                <p className="text-muted-foreground text-center px-4">Ask EquiMind about stocks, patterns, or trends...</p>
               </div>
             ) : (
               messages.map((msg, idx) => (
@@ -206,9 +238,9 @@ function EquiMindContent() {
         </div>
 
         {/* Input Area */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-10 pb-6 px-6">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-10 pb-6 px-4 md:px-6">
           <div className="max-w-3xl mx-auto relative">
-            <div className="flex items-center gap-2 mb-2 px-1">
+            <div className="flex items-center gap-2 mb-2 px-1 overflow-x-auto scrollbar-hide">
               <StrategyButton active={activeStrategy === "DEEP_THINK"} onClick={() => setActiveStrategy("DEEP_THINK")} label="Deep Think" icon={<Brain size={13} />} theme="violet" />
               <StrategyButton active={activeStrategy === "EQUIMIND_SEARCH"} onClick={() => setActiveStrategy("EQUIMIND_SEARCH")} label="Equimind Search" icon={<Cpu size={13} />} theme="blue" />
               <StrategyButton active={activeStrategy === "WEB_EQUIMIND"} onClick={() => setActiveStrategy("WEB_EQUIMIND")} label="Web + Equimind Search" icon={<Globe size={13} />} theme="neutral" />
@@ -218,7 +250,7 @@ function EquiMindContent() {
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={isListening ? "Listening..." : "Ask EquiMind about stocks, patterns, or trends..."}
+                placeholder={isListening ? "Listening..." : "Ask EquiMind..."}
                 rows={1}
                 className="w-full bg-transparent border-none outline-none text-[15px] px-2 py-1.5 resize-none max-h-[200px] overflow-y-auto placeholder-muted-foreground"
                 style={{ height: "42px" }}
@@ -252,13 +284,22 @@ function EquiMindContent() {
       </div>
 
       {/* Right Sidebar */}
-      <aside className="w-[360px] border-l border-border flex flex-col shrink-0 bg-card overflow-hidden">
+      <aside
+        className={cn(
+          "border-l border-border flex flex-col shrink-0 bg-card overflow-hidden transition-all duration-300 ease-in-out absolute right-0 md:relative z-20 h-full shadow-xl md:shadow-none",
+          isRightPanelOpen ? "w-[300px] md:w-[360px] translate-x-0" : "w-0 translate-x-full md:w-0 md:translate-x-0 opacity-0"
+        )}
+      >
         <div className="flex p-2 gap-1 border-b border-border bg-secondary/20 shrink-0">
-          <button onClick={() => setRightPanelMode("ACTIVITY")} className={cn("flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-[11px] font-bold transition-all", (rightPanelMode === "ACTIVITY" || rightPanelMode === "ALERTS") ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}>
-            <Activity size={14} /> Activity Feed
+          <button onClick={() => setRightPanelMode("ACTIVITY")} className={cn("flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-[11px] font-bold transition-all truncate", (rightPanelMode === "ACTIVITY" || rightPanelMode === "ALERTS") ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}>
+            <Activity size={14} className="shrink-0" /> <span className="truncate">Activity</span>
           </button>
-          <button onClick={() => { if (selectedStock) setRightPanelMode("STOCK_DETAILS"); }} className={cn("flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-[11px] font-bold transition-all", rightPanelMode === "STOCK_DETAILS" ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground", !selectedStock && "opacity-50 cursor-not-allowed")}>
-            <LucideBarChart size={14} /> Symbols
+          <button onClick={() => { if (selectedStock) setRightPanelMode("STOCK_DETAILS"); }} className={cn("flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-[11px] font-bold transition-all truncate", rightPanelMode === "STOCK_DETAILS" ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground", !selectedStock && "opacity-50 cursor-not-allowed")}>
+            <LucideBarChart size={14} className="shrink-0" /> <span className="truncate">Symbols</span>
+          </button>
+          {/* Close button for mobile right panel */}
+          <button onClick={() => setIsRightPanelOpen(false)} className="md:hidden p-1 hover:bg-red-100 text-muted-foreground hover:text-red-500 rounded">
+            <X size={16} /> {/* Requires importing X from lucide-react */}
           </button>
         </div>
         <div className="flex-1 overflow-hidden relative">
@@ -273,6 +314,14 @@ function EquiMindContent() {
           </AnimatePresence>
         </div>
       </aside>
+
+      {/* Overlay for mobile panel backdrop */}
+      {(isLeftPanelOpen || isRightPanelOpen) && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/20 z-10"
+          onClick={() => { setIsLeftPanelOpen(false); setIsRightPanelOpen(false); }}
+        />
+      )}
     </div>
   );
 }

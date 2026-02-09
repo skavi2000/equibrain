@@ -55,22 +55,32 @@ const notifications = [
   },
 ];
 
+import { useUIStore } from "@/stores/ui-store";
+import { Menu } from "lucide-react";
+
+// ... inside Topbar component ...
 export function Topbar() {
   const router = useRouter();
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { user, logout } = useAuthStore();
+  const { toggleSidebar } = useUIStore();
 
   return (
-    <header className="h-12 border-b border-[#E2E6EA] bg-white flex items-center justify-between px-6 z-50 relative shrink-0">
+    <header className="h-12 border-b border-[#E2E6EA] bg-white flex items-center justify-between px-4 z-40 relative shrink-0 gap-4">
+      {/* Mobile/Sidebar Toggle */}
+      <button onClick={toggleSidebar} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
+        <Menu size={20} />
+      </button>
+
       {/* Left: Search bar */}
-      <div className="flex-1 max-w-md relative">
+      <div className="flex-1 max-w-xl relative">
         <div className="relative">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             type="text"
             placeholder="Search stocks, symbols, news..."
-            className="pl-9 h-8 text-sm bg-gray-50 border-gray-200 focus:bg-white"
+            className="pl-9 h-8 text-sm bg-gray-50 border-gray-200 focus:bg-white w-full"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => setSearchFocused(true)}
