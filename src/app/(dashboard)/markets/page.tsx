@@ -48,7 +48,7 @@ function MarketsContent() {
   const sub = searchParams.get("tab");
   const [activeMainTab, setActiveMainTab] = useState("Overview");
   const [activeSubTab, setActiveSubTab] = useState("Home Page");
-  const [selectedStock, setSelectedStock] = useState<string | null>("JOH");
+  const [selectedStock, setSelectedStock] = useState<string | null>("AEL.N0000");
   const [selectedInstitution, setSelectedInstitution] = useState<string | null>(null);
   const { isDetailsPanelOpen, toggleDetailsPanel } = useUIStore();
 
@@ -357,11 +357,11 @@ function HighDividendsTable({ onStockClick }: { onStockClick: (t: string) => voi
         </thead>
         <tbody className="divide-y divide-[#F0F2F5]">
           {[
-            { t: "JOH", n: "John Keells", p: "145.20", y: "6.24%" },
-            { t: "DIST", n: "Distilleries", p: "89.50", y: "5.82%" },
-            { t: "BRKS", n: "Brooks", p: "42.10", y: "5.10%" },
-            { t: "HAPU", n: "Hapugastenne", p: "32.40", y: "4.85%" },
-            { t: "SAMP", n: "Sampath Bank", p: "78.20", y: "4.62%" },
+            { t: "ACL.N0000", n: "Aitken Spence", p: "145.20", y: "6.24%" },
+            { t: "AEL.N0000", n: "Distilleries", p: "89.50", y: "5.82%" },
+            { t: "HARI.N0000", n: "Brooks", p: "42.10", y: "5.10%" },
+            { t: "COMB.N0000", n: "Hapugastenne", p: "32.40", y: "4.85%" },
+            { t: "RHL.N0000", n: "Sampath Bank", p: "78.20", y: "4.62%" },
           ].map((row) => (
             <tr key={row.t} className="hover:bg-[#F9FAFB] transition-colors cursor-pointer group" onClick={() => onStockClick(row.t)}>
               <td className="py-2.5">
