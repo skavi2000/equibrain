@@ -56,9 +56,19 @@ interface Market {
   name: string;
   code: string;
   region: string;
-  status: "active" | "maintenance" | "closed";
   coordinates: [number, number]; // [longitude, latitude]
   latency?: number;
+  tradingHoursUTC: { open: { h: number; m: number }; close: { h: number; m: number } };
+}
+
+function getMarketStatus(market: Market): "active" | "closed" {
+  const now = new Date();
+  const day = now.getUTCDay();
+  if (day === 0 || day === 6) return "closed";
+  const utcMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const openMinutes = market.tradingHoursUTC.open.h * 60 + market.tradingHoursUTC.open.m;
+  const closeMinutes = market.tradingHoursUTC.close.h * 60 + market.tradingHoursUTC.close.m;
+  return (utcMinutes >= openMinutes && utcMinutes < closeMinutes) ? "active" : "closed";
 }
 
 interface LogEntry {
@@ -68,14 +78,14 @@ interface LogEntry {
   category: "INFO" | "WARN" | "SUCCESS";
 }
 
-// --- Market data ---
+// --- Market data with UTC trading hours ---
 const MARKETS: Market[] = [
-  { id: "nyse", name: "New York Stock Exchange", code: "NYSE", region: "AMER", status: "active", coordinates: [-74.0060, 40.7128], latency: 12 },
-  { id: "nse", name: "National Stock Exchange of India", code: "NSE", region: "ASIA", status: "active", coordinates: [72.8777, 19.0760], latency: 140 },
-  { id: "cse", name: "Colombo Stock Exchange", code: "CSE", region: "ASIA", status: "closed", coordinates: [79.8612, 6.9271], latency: 165 },
-  { id: "hose", name: "Ho Chi Minh Stock Exchange", code: "HOSE", region: "ASIA", status: "active", coordinates: [106.6297, 10.8231], latency: 175 },
-  { id: "hkg", name: "Hong Kong Stock Exchange", code: "HKG", region: "ASIA", status: "active", coordinates: [114.1694, 22.3193], latency: 145 },
-  { id: "sgx", name: "Singapore Exchange", code: "SGX", region: "ASIA", status: "maintenance", coordinates: [103.8198, 1.3521], latency: 130 },
+  { id: "nyse", name: "New York Stock Exchange", code: "NYSE", region: "AMER", coordinates: [-74.0060, 40.7128], latency: 12, tradingHoursUTC: { open: { h: 14, m: 30 }, close: { h: 21, m: 0 } } },
+  { id: "nse", name: "National Stock Exchange of India", code: "NSE", region: "ASIA", coordinates: [72.8777, 19.0760], latency: 140, tradingHoursUTC: { open: { h: 3, m: 45 }, close: { h: 10, m: 0 } } },
+  { id: "cse", name: "Colombo Stock Exchange", code: "CSE", region: "ASIA", coordinates: [79.8612, 6.9271], latency: 165, tradingHoursUTC: { open: { h: 4, m: 0 }, close: { h: 9, m: 0 } } },
+  { id: "hose", name: "Ho Chi Minh Stock Exchange", code: "HOSE", region: "ASIA", coordinates: [106.6297, 10.8231], latency: 175, tradingHoursUTC: { open: { h: 2, m: 0 }, close: { h: 8, m: 0 } } },
+  { id: "hkg", name: "Hong Kong Stock Exchange", code: "HKG", region: "ASIA", coordinates: [114.1694, 22.3193], latency: 145, tradingHoursUTC: { open: { h: 1, m: 30 }, close: { h: 8, m: 0 } } },
+  { id: "sgx", name: "Singapore Exchange", code: "SGX", region: "ASIA", coordinates: [103.8198, 1.3521], latency: 130, tradingHoursUTC: { open: { h: 1, m: 0 }, close: { h: 9, m: 0 } } },
 ];
 
 // --- Activity Feed log messages (streamed live) ---
@@ -115,6 +125,13 @@ export function DiagnosticModule() {
   const [selectedMarket, setSelectedMarket] = useState<Market | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [, setTick] = useState(0);
+
+  // Re-check market statuses every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Live activity feed state
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -323,10 +340,6 @@ export function DiagnosticModule() {
                     <span className="text-[10px] font-bold text-[#6B7280]">Active</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-[#F59E0B]" />
-                    <span className="text-[10px] font-bold text-[#6B7280]">Maintenance</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full bg-[#DC2626]" />
                     <span className="text-[10px] font-bold text-[#6B7280]">Closed</span>
                   </div>
@@ -393,10 +406,7 @@ export function DiagnosticModule() {
                         <circle
                           r={12}
                           fill="transparent"
-                          stroke={
-                            m.status === "active" ? "#10B981" :
-                            m.status === "maintenance" ? "#F59E0B" : "#DC2626"
-                          }
+                          stroke={getMarketStatus(m) === "active" ? "#16A34A" : "#DC2626"}
                           strokeWidth={1}
                           opacity={0.3}
                         >
@@ -407,10 +417,7 @@ export function DiagnosticModule() {
                         <circle
                           r={6}
                           fill="transparent"
-                          stroke={
-                            m.status === "active" ? "#10B981" :
-                            m.status === "maintenance" ? "#F59E0B" : "#DC2626"
-                          }
+                          stroke={getMarketStatus(m) === "active" ? "#16A34A" : "#DC2626"}
                           strokeWidth={2.5}
                         />
                         {/* Invisible larger hit area for easier hover */}
@@ -884,18 +891,21 @@ export function DiagnosticModule() {
                 <div className="flex gap-3 mb-10">
                   <span className="px-3 py-1 bg-[#F1F3F5] text-[#1A1D23] text-[10px] font-black uppercase rounded-lg border border-[#E2E6EA]">{selectedMarket.code}</span>
                   <span className="px-3 py-1 bg-[#F1F3F5] text-[#1A1D23] text-[10px] font-black uppercase rounded-lg border border-[#E2E6EA]">{selectedMarket.region}</span>
-                  <span className={cn(
-                    "px-3 py-1 text-[10px] font-black uppercase rounded-lg border flex items-center gap-1.5",
-                    selectedMarket.status === "active" ? "bg-[#DCFCE7] text-[#16A34A] border-[#16A34A]/20" :
-                    selectedMarket.status === "maintenance" ? "bg-[#FEF3C7] text-[#D97706] border-[#D97706]/20" :
-                    "bg-[#FEE2E2] text-[#DC2626] border-[#DC2626]/20"
-                  )}>
-                    <div className={cn("w-1.5 h-1.5 rounded-full",
-                      selectedMarket.status === "active" ? "bg-[#16A34A]" :
-                      selectedMarket.status === "maintenance" ? "bg-[#F59E0B]" : "bg-[#DC2626]"
-                    )} />
-                    {selectedMarket.status}
-                  </span>
+                  {(() => {
+                    const status = getMarketStatus(selectedMarket);
+                    return (
+                      <span className={cn(
+                        "px-3 py-1 text-[10px] font-black uppercase rounded-lg border flex items-center gap-1.5",
+                        status === "active" ? "bg-[#DCFCE7] text-[#16A34A] border-[#16A34A]/20" :
+                        "bg-[#FEE2E2] text-[#DC2626] border-[#DC2626]/20"
+                      )}>
+                        <div className={cn("w-1.5 h-1.5 rounded-full",
+                          status === "active" ? "bg-[#16A34A]" : "bg-[#DC2626]"
+                        )} />
+                        {status}
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 {!hasMarketDiagnosticData(selectedMarket.id) && (

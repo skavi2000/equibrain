@@ -99,7 +99,7 @@ export function Topbar() {
       </button>
 
       {/* Left: Search bar */}
-      <div className="flex-1 max-w-xl relative">
+      <div className="flex-1 max-w-xs sm:max-w-md lg:max-w-xl relative">
         <div className="relative">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
@@ -136,9 +136,9 @@ export function Topbar() {
       </div>
 
       {/* Right section */}
-      <div className="flex items-center gap-4 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
         {/* Market status indicator */}
-        <div className="flex items-center gap-2">
+        <div className="hidden sm:flex items-center gap-2">
           <div className={cn(
             "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
             isMarketOpen
@@ -149,9 +149,9 @@ export function Topbar() {
               "h-1.5 w-1.5 rounded-full",
               isMarketOpen ? "bg-green-500" : "bg-red-500"
             )} />
-            CSE Market: {isMarketOpen ? "OPEN" : "CLOSED"}
+            <span className="hidden md:inline">CSE Market:</span> {isMarketOpen ? "OPEN" : "CLOSED"}
           </div>
-          <div className="flex items-center gap-1 text-xs text-gray-500">
+          <div className="hidden md:flex items-center gap-1 text-xs text-gray-500">
             <Clock className="h-3 w-3" />
             <span>{sriLankaTime}</span>
           </div>

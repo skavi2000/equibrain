@@ -2,13 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import {
-  ArrowLeft,
-  Heart,
-  Bell,
-  Sparkles,
   TrendingUp,
   Clock,
-  ExternalLink,
   ShieldCheck,
   CheckCircle2,
 } from "lucide-react";
@@ -85,19 +80,6 @@ export function StockDetailsPanel({
     >
       {showHeader && (
         <div className="px-4 pt-4 pb-2 border-b border-border shrink-0">
-          <div className="flex items-center justify-between mb-2">
-            <ArrowLeft
-              size={18}
-              className="text-muted-foreground cursor-pointer hover:text-foreground transition-colors"
-              onClick={onClose}
-            />
-            <div className="flex items-center gap-4">
-              <Heart size={18} className="text-muted-foreground cursor-pointer hover:text-loss transition-colors" />
-              <div className="w-8 h-8 flex items-center justify-center opacity-0 pointer-events-none">
-                <Bell size={18} />
-              </div>
-            </div>
-          </div>
           <div className="flex items-baseline gap-2 mb-1">
             <h2 className="text-2xl font-bold tracking-tight">{ticker}</h2>
             <span className="text-sm text-muted-foreground font-medium truncate">Institutional Analysis Feed</span>
@@ -112,10 +94,7 @@ export function StockDetailsPanel({
               </div>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-[10px] text-muted-foreground font-medium">Market: OPEN</span>
-                <div className="flex items-center gap-1">
-                  <span className="bg-primary px-1 rounded-[2px] text-[8px] text-white font-bold uppercase">CSE</span>
-                  <Sparkles size={10} className="text-primary" />
-                </div>
+                <span className="bg-primary px-1 rounded-[2px] text-[8px] text-white font-bold uppercase">CSE</span>
               </div>
             </div>
           </div>
@@ -274,12 +253,11 @@ export function StockDetailsPanel({
         )}
       </div>
 
-      <div className="p-3 bg-secondary/20 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground shrink-0">
+      <div className="p-3 bg-secondary/20 border-t border-border flex items-center text-[10px] text-muted-foreground shrink-0">
         <div className="flex items-center gap-1">
           <Clock size={10} />
           <span>Feb 3 11:13:05</span>
         </div>
-        <ExternalLink size={12} className="hover:text-primary cursor-pointer transition-colors" />
       </div>
     </motion.div>
   );

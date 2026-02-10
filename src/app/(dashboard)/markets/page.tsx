@@ -2,7 +2,6 @@
 
 import { Suspense, useState, useEffect } from "react";
 import {
-  Target,
   Search,
   ChevronRight,
   ArrowUpRight,
@@ -12,6 +11,8 @@ import {
   BarChart3,
   Sparkles,
   Wrench,
+  PanelRightClose,
+  PanelRightOpen,
 } from "lucide-react";
 import {
   AreaChart,
@@ -30,9 +31,9 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { useSearchParams } from "next/navigation";
 import { StockDetailsPanel } from "@/components/shared/stock-details-panel";
+import { useUIStore } from "@/stores/ui-store";
 
 export default function MarketsPage() {
   return (
@@ -49,6 +50,7 @@ function MarketsContent() {
   const [activeSubTab, setActiveSubTab] = useState("Home Page");
   const [selectedStock, setSelectedStock] = useState<string | null>("JOH");
   const [selectedInstitution, setSelectedInstitution] = useState<string | null>(null);
+  const { isDetailsPanelOpen, toggleDetailsPanel } = useUIStore();
 
   useEffect(() => {
     if (sub === "Overview" || sub === "CSE" || sub === "HK") {
@@ -64,9 +66,9 @@ function MarketsContent() {
   }
 
   return (
-    <div className="h-full flex bg-[#FAFBFC] overflow-hidden">
-      <div className="flex-1 flex flex-col min-w-0 border-r border-[#E2E6EA]">
-        <div className="h-10 bg-white border-b border-[#E2E6EA] flex items-center px-4 shrink-0 gap-6">
+    <div className="h-full flex bg-[#FAFBFC] overflow-hidden relative">
+      <div className="flex-1 flex flex-col min-w-0 lg:border-r border-[#E2E6EA]">
+        <div className="h-10 bg-white border-b border-[#E2E6EA] flex items-center px-4 shrink-0 gap-4 sm:gap-6">
           {mainTabs.map((tab) => (
             <button
               key={tab}
@@ -160,16 +162,43 @@ function MarketsContent() {
         </div>
       </div>
 
-      <aside className="w-[360px] flex flex-col shrink-0 bg-white">
-        {selectedStock ? (
-          <StockDetailsPanel ticker={selectedStock} onClose={() => setSelectedStock(null)} />
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#F9FAFB]">
-            <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-[#E2E6EA] flex items-center justify-center mb-6">
-              <Activity size={32} className="text-[#9CA3AF]" />
+      <aside
+        className={cn(
+          "flex flex-col shrink-0 bg-white transition-all duration-300 ease-in-out overflow-hidden",
+          isDetailsPanelOpen ? "w-[360px]" : "w-[44px]"
+        )}
+      >
+        {isDetailsPanelOpen ? (
+          <>
+            <div className="p-4 border-b border-[#E2E6EA] flex items-center justify-between shrink-0">
+              <h2 className="text-sm font-black text-[#1A1D23] uppercase tracking-wider">Details</h2>
+              <button onClick={toggleDetailsPanel} className="p-1 hover:bg-[#F0F2F5] rounded transition-colors cursor-pointer" title="Collapse panel">
+                <PanelRightClose size={18} className="text-[#6B7280]" />
+              </button>
             </div>
-            <h3 className="font-bold text-[#1A1D23] mb-2">No Stock Selected</h3>
-            <p className="text-sm text-[#6B7280]">Select a symbol from the market list to view detailed analysis.</p>
+            {selectedStock ? (
+              <StockDetailsPanel ticker={selectedStock} onClose={() => setSelectedStock(null)} />
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#F9FAFB]">
+                <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-[#E2E6EA] flex items-center justify-center mb-6">
+                  <Activity size={32} className="text-[#9CA3AF]" />
+                </div>
+                <h3 className="font-bold text-[#1A1D23] mb-2">No Stock Selected</h3>
+                <p className="text-sm text-[#6B7280]">Select a symbol from the market list to view detailed analysis.</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-col items-center py-4 gap-3 h-full">
+            <button onClick={toggleDetailsPanel} className="p-1 hover:bg-[#F0F2F5] rounded transition-colors cursor-pointer" title="Expand panel">
+              <PanelRightOpen size={18} className="text-[#6B7280]" />
+            </button>
+            <span
+              className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-widest"
+              style={{ writingMode: "vertical-lr" }}
+            >
+              Details
+            </span>
           </div>
         )}
       </aside>
