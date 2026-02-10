@@ -30,7 +30,7 @@ const WATCHLIST_STOCKS = [
 ];
 
 export default function WatchlistPage() {
-  const [selectedTicker, setSelectedTicker] = useState("SCO");
+  const [selectedTicker, setSelectedTicker] = useState("AEL.N0000");
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState("Chart");
   const selectedStockData = WATCHLIST_STOCKS.find((s) => s.ticker === selectedTicker) || WATCHLIST_STOCKS[0];
 

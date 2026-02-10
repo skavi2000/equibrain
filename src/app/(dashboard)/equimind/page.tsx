@@ -268,7 +268,7 @@ function EquiMindContent() {
             ) : rightPanelMode === "ALERTS" ? (
               <AlertsPanel key="alerts" onClose={() => setRightPanelMode("ACTIVITY")} />
             ) : (
-              <StockDetailsPanel key="stock" ticker={selectedStock || ""} onClose={() => setRightPanelMode("ACTIVITY")} />
+              <StockDetailsPanel key="stock" ticker={selectedStock || "AEL.N0000"} onClose={() => setRightPanelMode("ACTIVITY")} />
             )}
           </AnimatePresence>
         </div>
