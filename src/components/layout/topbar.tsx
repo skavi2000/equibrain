@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -55,22 +55,57 @@ const notifications = [
   },
 ];
 
+import { useUIStore } from "@/stores/ui-store";
+import { Menu } from "lucide-react";
+
+// ... inside Topbar component ...
 export function Topbar() {
   const router = useRouter();
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const { user, logout } = useAuthStore();
+  const { toggleSidebar } = useUIStore();
+
+  // Live clock in Sri Lanka timezone (Asia/Colombo, UTC+5:30)
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Format time in Sri Lanka timezone
+  const sriLankaTime = now.toLocaleTimeString("en-US", {
+    timeZone: "Asia/Colombo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  // Determine if CSE market is open (Mon-Fri, 9:30 AM - 2:30 PM Sri Lanka time)
+  const sriLankaDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Colombo" }));
+  const dayOfWeek = sriLankaDate.getDay(); // 0=Sun, 6=Sat
+  const hours = sriLankaDate.getHours();
+  const minutes = sriLankaDate.getMinutes();
+  const totalMinutes = hours * 60 + minutes;
+  const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+  const isMarketOpen = isWeekday && totalMinutes >= 570 && totalMinutes < 870; // 9:30=570, 14:30=870
 
   return (
-    <header className="h-12 border-b border-[#E2E6EA] bg-white flex items-center justify-between px-6 z-50 relative shrink-0">
+    <header className="h-12 border-b border-[#E2E6EA] bg-white flex items-center justify-between px-4 z-40 relative shrink-0 gap-4">
+      {/* Mobile/Sidebar Toggle */}
+      <button onClick={toggleSidebar} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
+        <Menu size={20} />
+      </button>
+
       {/* Left: Search bar */}
-      <div className="flex-1 max-w-md relative">
+      <div className="flex-1 max-w-xs sm:max-w-md lg:max-w-xl relative">
         <div className="relative">
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             type="text"
             placeholder="Search stocks, symbols, news..."
-            className="pl-9 h-8 text-sm bg-gray-50 border-gray-200 focus:bg-white"
+            className="pl-9 h-8 text-sm bg-gray-50 border-gray-200 focus:bg-white w-full"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => setSearchFocused(true)}
@@ -101,16 +136,24 @@ export function Topbar() {
       </div>
 
       {/* Right section */}
-      <div className="flex items-center gap-4 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
         {/* Market status indicator */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-green-50 text-green-700 px-2.5 py-1 rounded-full text-xs font-medium">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-            CSE Market: OPEN
+        <div className="hidden sm:flex items-center gap-2">
+          <div className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
+            isMarketOpen
+              ? "bg-green-50 text-green-700"
+              : "bg-red-50 text-red-700"
+          )}>
+            <span className={cn(
+              "h-1.5 w-1.5 rounded-full",
+              isMarketOpen ? "bg-green-500" : "bg-red-500"
+            )} />
+            <span className="hidden md:inline">CSE Market:</span> {isMarketOpen ? "OPEN" : "CLOSED"}
           </div>
-          <div className="flex items-center gap-1 text-xs text-gray-500">
+          <div className="hidden md:flex items-center gap-1 text-xs text-gray-500">
             <Clock className="h-3 w-3" />
-            <span>14:32</span>
+            <span>{sriLankaTime}</span>
           </div>
         </div>
 

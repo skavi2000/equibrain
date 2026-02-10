@@ -9,27 +9,26 @@ import {
   Activity,
   ArrowLeft,
   Paperclip,
-  Languages,
-  Maximize2,
   Cpu,
   Globe,
-  Pencil,
   Trash2,
   BarChart as LucideBarChart,
   Loader2,
-  MoreVertical,
   Archive,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { ImageWithFallback } from "@/components/shared/image-with-fallback";
 import { StockDetailsPanel } from "@/components/shared/stock-details-panel";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useChatStore } from "@/stores/chat-store";
 import { useSpeechToText } from "@/hooks/use-speech-to-text";
-import { Message, ActivityFeedItem, ChatSession } from "@/types/equimind";
-import { format } from "date-fns";
+import { ActivityFeedItem, ChatSession } from "@/types/equimind";
+import { useUIStore } from "@/stores/ui-store";
 
 type RightPanelMode = "ACTIVITY" | "STOCK_DETAILS" | "ALERTS";
 type SearchStrategy = "DEEP_THINK" | "EQUIMIND_SEARCH" | "WEB_EQUIMIND";
@@ -55,16 +54,21 @@ function EquiMindContent() {
     currentSessionId,
     messages,
     activityFeed,
-    isLoading,
     isStreaming,
     loadSessions,
     selectSession,
-    createSession,
     sendMessage,
     deleteSession,
     archiveSession,
     resetState
   } = useChatStore();
+
+  const {
+    isEquimindChatPanelOpen,
+    isEquimindActivityPanelOpen,
+    toggleEquimindChatPanel,
+    toggleEquimindActivityPanel,
+  } = useUIStore();
 
   const { isListening, transcript, startListening, stopListening, setTranscript } = useSpeechToText();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -81,7 +85,7 @@ function EquiMindContent() {
   useEffect(() => {
     if (transcript) {
       setInputValue(prev => prev ? `${prev} ${transcript}` : transcript);
-      setTranscript(""); // Clear transcript after appending
+      setTranscript("");
     }
   }, [transcript]);
 
@@ -92,6 +96,7 @@ function EquiMindContent() {
   const handleStockClick = (ticker: string) => {
     setSelectedStock(ticker);
     setRightPanelMode("STOCK_DETAILS");
+    if (!isEquimindActivityPanelOpen) toggleEquimindActivityPanel();
   };
 
   const handleSendMessage = async () => {
@@ -99,7 +104,6 @@ function EquiMindContent() {
     const msg = inputValue;
     setInputValue("");
 
-    // Determine context/reasoning mode based on activeStrategy
     let contextMode: 'web_internal' | 'internal_only' = 'internal_only';
     let reasoningMode: 'quick' | 'deep' = 'quick';
 
@@ -117,9 +121,6 @@ function EquiMindContent() {
 
   const handleNewChat = async () => {
     resetState();
-    // Optional: don't create session immediately, wait for first message
-    // Or create immediately:
-    // await createSession("New Chat");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -130,54 +131,87 @@ function EquiMindContent() {
   }
 
   return (
-    <div className="h-full flex bg-background overflow-hidden text-foreground font-sans">
+    <div className="h-full flex bg-[#FAFBFC] overflow-hidden">
       {/* Left Sidebar: Chat History */}
-      <aside className="w-[260px] bg-secondary/50 border-r border-border flex flex-col shrink-0">
-        <div className="p-4">
-          <Button onClick={handleNewChat} variant="outline" className="w-full flex items-center justify-between border-border bg-card hover:bg-secondary text-sm font-semibold h-10 px-3 rounded-lg shadow-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-primary rounded flex items-center justify-center text-white text-[10px] font-bold">EB</div>
-              <span>New chat</span>
+      <aside
+        className={cn(
+          "border-r border-[#E2E6EA] flex flex-col bg-white shrink-0 transition-all duration-300 ease-in-out overflow-hidden",
+          isEquimindChatPanelOpen ? "w-[260px]" : "w-[44px]"
+        )}
+      >
+        {isEquimindChatPanelOpen ? (
+          <>
+            <div className="p-4 border-b border-[#E2E6EA] space-y-3 shrink-0">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={toggleEquimindChatPanel}
+                  className="p-1.5 hover:bg-[#F0F2F5] rounded-md transition-colors text-[#9CA3AF] hover:text-[#1A1D23] cursor-pointer"
+                  title="Collapse chat history"
+                >
+                  <PanelLeftClose size={16} />
+                </button>
+                <h2 className="text-sm font-black text-[#1A1D23] uppercase tracking-wider">Chats</h2>
+              </div>
+              <Button onClick={handleNewChat} variant="outline" className="w-full flex items-center justify-between border-[#E2E6EA] bg-white hover:bg-[#F9FAFB] text-sm font-semibold h-10 px-3 rounded-lg shadow-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 bg-[#2563EB] rounded flex items-center justify-center text-white text-[10px] font-bold">EB</div>
+                  <span className="truncate">New chat</span>
+                </div>
+                <Plus size={16} className="text-[#9CA3AF] shrink-0" />
+              </Button>
             </div>
-            <Plus size={16} className="text-muted-foreground" />
-          </Button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-2 space-y-1 scrollbar-hide">
-          {/* Group sessions by date could be added here later */}
-          <div className="px-3 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">History</div>
-          {sessions.map(session => (
-            <HistoryItem
-              key={session.id}
-              session={session}
-              active={session.id === currentSessionId}
-              onSelect={() => selectSession(session.id)}
-              onDelete={() => deleteSession(session.id)}
-              onArchive={() => archiveSession(session.id)}
-            />
-          ))}
-          {sessions.length === 0 && (
-            <div className="px-4 py-8 text-center text-xs text-muted-foreground">
-              No history yet
+            <div className="flex-1 overflow-y-auto px-2 space-y-1 scrollbar-hide">
+              <div className="px-3 py-2 text-[11px] font-bold text-[#9CA3AF] uppercase tracking-wider">History</div>
+              {sessions.map(session => (
+                <HistoryItem
+                  key={session.id}
+                  session={session}
+                  active={session.id === currentSessionId}
+                  onSelect={() => selectSession(session.id)}
+                  onDelete={() => deleteSession(session.id)}
+                  onArchive={() => archiveSession(session.id)}
+                />
+              ))}
+              {sessions.length === 0 && (
+                <div className="px-4 py-8 text-center text-xs text-[#9CA3AF]">
+                  No history yet
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center h-full py-3">
+            <button
+              onClick={toggleEquimindChatPanel}
+              className="p-2 hover:bg-[#F0F2F5] rounded-md transition-colors text-[#9CA3AF] hover:text-[#2563EB] cursor-pointer"
+              title="Expand chat history"
+            >
+              <PanelLeftOpen size={18} />
+            </button>
+            <div className="flex-1 flex items-center justify-center">
+              <span
+                className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-[0.2em] whitespace-nowrap"
+                style={{ writingMode: "vertical-lr" }}
+              >
+                Chats
+              </span>
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col relative min-w-0 bg-background">
-        <header className="h-14 border-b border-border flex items-center justify-end px-6 shrink-0 bg-background/80 backdrop-blur-md z-10">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground h-9 w-9"><Languages size={18} /></Button>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground h-9 w-9"><Maximize2 size={18} /></Button>
-          </div>
+      <div className="flex-1 flex flex-col relative min-w-0 bg-white border-r border-[#E2E6EA]">
+        <header className="h-12 border-b border-[#E2E6EA] flex items-center px-5 shrink-0 bg-white">
+          <h2 className="font-semibold text-sm text-[#1A1D23]">EquiMind Chat</h2>
         </header>
 
-        <div className="flex-1 overflow-y-auto scroll-smooth">
-          <div className="max-w-3xl mx-auto py-10 px-6 space-y-10 pb-32">
+        <div className="flex-1 overflow-y-auto scroll-smooth bg-[#F9FAFB]/30">
+          <div className="max-w-3xl mx-auto py-10 px-6 space-y-10 pb-64">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full pt-20 opacity-50">
-                <Brain size={48} className="text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">Ask EquiMind about stocks, patterns, or trends...</p>
+                <Brain size={48} className="text-[#9CA3AF] mb-4" />
+                <p className="text-[#9CA3AF] text-center px-4">Ask EquiMind about stocks, patterns, or trends...</p>
               </div>
             ) : (
               messages.map((msg, idx) => (
@@ -195,9 +229,9 @@ function EquiMindContent() {
                   <Brain size={18} className="animate-pulse" />
                 </div>
                 <div className="flex items-center mt-2 gap-1">
-                  <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                  <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                  <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce"></div>
+                  <div className="w-1.5 h-1.5 bg-[#9CA3AF] rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                  <div className="w-1.5 h-1.5 bg-[#9CA3AF] rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                  <div className="w-1.5 h-1.5 bg-[#9CA3AF] rounded-full animate-bounce"></div>
                 </div>
               </div>
             )}
@@ -206,41 +240,41 @@ function EquiMindContent() {
         </div>
 
         {/* Input Area */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-background via-background to-transparent pt-10 pb-6 px-6">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white to-transparent pt-10 pb-6 px-4 md:px-6">
           <div className="max-w-3xl mx-auto relative">
-            <div className="flex items-center gap-2 mb-2 px-1">
+            <div className="flex items-center gap-2 mb-2 px-1 overflow-x-auto scrollbar-hide">
               <StrategyButton active={activeStrategy === "DEEP_THINK"} onClick={() => setActiveStrategy("DEEP_THINK")} label="Deep Think" icon={<Brain size={13} />} theme="violet" />
               <StrategyButton active={activeStrategy === "EQUIMIND_SEARCH"} onClick={() => setActiveStrategy("EQUIMIND_SEARCH")} label="Equimind Search" icon={<Cpu size={13} />} theme="blue" />
               <StrategyButton active={activeStrategy === "WEB_EQUIMIND"} onClick={() => setActiveStrategy("WEB_EQUIMIND")} label="Web + Equimind Search" icon={<Globe size={13} />} theme="neutral" />
             </div>
-            <div className={cn("relative bg-secondary/30 border border-border rounded-2xl shadow-sm focus-within:bg-card focus-within:shadow-md focus-within:border-ai-violet/30 transition-all p-3", isListening && "border-red-500/50 shadow-red-500/20")}>
+            <div className={cn("relative bg-[#F0F2F5]/30 border border-[#E2E6EA] rounded-2xl shadow-sm focus-within:bg-white focus-within:shadow-md focus-within:border-[#7C3AED]/30 transition-all p-3", isListening && "border-red-500/50 shadow-red-500/20")}>
               <textarea
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={isListening ? "Listening..." : "Ask EquiMind about stocks, patterns, or trends..."}
+                placeholder={isListening ? "Listening..." : "Ask EquiMind..."}
                 rows={1}
-                className="w-full bg-transparent border-none outline-none text-[15px] px-2 py-1.5 resize-none max-h-[200px] overflow-y-auto placeholder-muted-foreground"
+                className="w-full bg-transparent border-none outline-none text-[15px] px-2 py-1.5 resize-none max-h-[200px] overflow-y-auto placeholder-[#9CA3AF]"
                 style={{ height: "42px" }}
               />
-              <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/50">
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#E2E6EA]/50">
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-lg"><Paperclip size={18} /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-[#9CA3AF] hover:text-[#1A1D23] rounded-lg"><Paperclip size={18} /></Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={isListening ? stopListening : startListening}
-                    className={cn("h-8 w-8 text-muted-foreground hover:text-foreground rounded-lg", isListening && "text-red-500 hover:text-red-600 bg-red-100 dark:bg-red-900/20")}
+                    className={cn("h-8 w-8 text-[#9CA3AF] hover:text-[#1A1D23] rounded-lg", isListening && "text-red-500 hover:text-red-600 bg-red-100")}
                   >
                     <Mic size={18} className={isListening ? "animate-pulse" : ""} />
                   </Button>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline">Press Enter</span>
+                  <span className="text-[10px] text-[#9CA3AF] font-medium hidden sm:inline">Press Enter</span>
                   <Button
                     onClick={handleSendMessage}
                     disabled={!inputValue.trim() || isStreaming}
-                    className="h-8 w-8 bg-ai-violet hover:bg-ai-violet/90 text-white rounded-lg flex items-center justify-center p-0 transition-all active:scale-95 shadow-md shadow-ai-violet/20 disabled:opacity-50"
+                    className="h-8 w-8 bg-[#7C3AED] hover:bg-[#7C3AED]/90 text-white rounded-lg flex items-center justify-center p-0 transition-all active:scale-95 shadow-md shadow-[#7C3AED]/20 disabled:opacity-50"
                   >
                     {isStreaming ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                   </Button>
@@ -252,26 +286,62 @@ function EquiMindContent() {
       </div>
 
       {/* Right Sidebar */}
-      <aside className="w-[360px] border-l border-border flex flex-col shrink-0 bg-card overflow-hidden">
-        <div className="flex p-2 gap-1 border-b border-border bg-secondary/20 shrink-0">
-          <button onClick={() => setRightPanelMode("ACTIVITY")} className={cn("flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-[11px] font-bold transition-all", (rightPanelMode === "ACTIVITY" || rightPanelMode === "ALERTS") ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground")}>
-            <Activity size={14} /> Activity Feed
-          </button>
-          <button onClick={() => { if (selectedStock) setRightPanelMode("STOCK_DETAILS"); }} className={cn("flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-[11px] font-bold transition-all", rightPanelMode === "STOCK_DETAILS" ? "bg-card shadow-sm text-primary" : "text-muted-foreground hover:text-foreground", !selectedStock && "opacity-50 cursor-not-allowed")}>
-            <LucideBarChart size={14} /> Symbols
-          </button>
-        </div>
-        <div className="flex-1 overflow-hidden relative">
-          <AnimatePresence mode="wait">
-            {rightPanelMode === "ACTIVITY" ? (
-              <ActivityFeedPanel key="activity" feed={activityFeed} />
-            ) : rightPanelMode === "ALERTS" ? (
-              <AlertsPanel key="alerts" onClose={() => setRightPanelMode("ACTIVITY")} />
-            ) : (
-              <StockDetailsPanel key="stock" ticker={selectedStock || "AEL.N0000"} onClose={() => setRightPanelMode("ACTIVITY")} />
-            )}
-          </AnimatePresence>
-        </div>
+      <aside
+        className={cn(
+          "flex flex-col shrink-0 bg-white transition-all duration-300 ease-in-out overflow-hidden",
+          isEquimindActivityPanelOpen ? "w-[360px]" : "w-[44px]"
+        )}
+      >
+        {isEquimindActivityPanelOpen ? (
+          <>
+            <div className="p-4 border-b border-[#E2E6EA] flex items-center justify-between shrink-0">
+              <div className="flex gap-1 flex-1 mr-2">
+                <button onClick={() => setRightPanelMode("ACTIVITY")} className={cn("flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-[11px] font-bold transition-all truncate", (rightPanelMode === "ACTIVITY" || rightPanelMode === "ALERTS") ? "bg-[#F0F2F5] shadow-sm text-[#2563EB]" : "text-[#9CA3AF] hover:text-[#1A1D23]")}>
+                  <Activity size={14} className="shrink-0" /> <span className="truncate">Activity</span>
+                </button>
+                <button onClick={() => { if (selectedStock) setRightPanelMode("STOCK_DETAILS"); }} className={cn("flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-[11px] font-bold transition-all truncate", rightPanelMode === "STOCK_DETAILS" ? "bg-[#F0F2F5] shadow-sm text-[#2563EB]" : "text-[#9CA3AF] hover:text-[#1A1D23]", !selectedStock && "opacity-50 cursor-not-allowed")}>
+                  <LucideBarChart size={14} className="shrink-0" /> <span className="truncate">Symbols</span>
+                </button>
+              </div>
+              <button
+                onClick={toggleEquimindActivityPanel}
+                className="p-1.5 hover:bg-[#F0F2F5] rounded-md transition-colors text-[#9CA3AF] hover:text-[#1A1D23] cursor-pointer"
+                title="Collapse panel"
+              >
+                <PanelRightClose size={16} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden relative">
+              <AnimatePresence mode="wait">
+                {rightPanelMode === "ACTIVITY" ? (
+                  <ActivityFeedPanel key="activity" feed={activityFeed} />
+                ) : rightPanelMode === "ALERTS" ? (
+                  <AlertsPanel key="alerts" onClose={() => setRightPanelMode("ACTIVITY")} />
+                ) : (
+                  <StockDetailsPanel key="stock" ticker={selectedStock || ""} onClose={() => setRightPanelMode("ACTIVITY")} />
+                )}
+              </AnimatePresence>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center h-full py-3">
+            <button
+              onClick={toggleEquimindActivityPanel}
+              className="p-2 hover:bg-[#F0F2F5] rounded-md transition-colors text-[#9CA3AF] hover:text-[#2563EB] cursor-pointer"
+              title="Expand panel"
+            >
+              <PanelRightOpen size={18} />
+            </button>
+            <div className="flex-1 flex items-center justify-center">
+              <span
+                className="text-[10px] font-black text-[#9CA3AF] uppercase tracking-[0.2em] whitespace-nowrap"
+                style={{ writingMode: "vertical-lr" }}
+              >
+                Activity
+              </span>
+            </div>
+          </div>
+        )}
       </aside>
     </div>
   );
@@ -299,17 +369,17 @@ function StrategyButton({ active, onClick, label, icon, theme }: { active: boole
 
 function HistoryItem({ session, active = false, onSelect, onDelete, onArchive }: { session: ChatSession; active?: boolean; onSelect: () => void; onDelete: () => void; onArchive: () => void }) {
   return (
-    <div className={cn("w-full group/item flex items-center gap-2 px-3 py-2.5 rounded-lg transition-all", active ? "bg-ai-violet-bg text-ai-violet" : "hover:bg-secondary text-foreground")}>
-      <button onClick={onSelect} className="flex-1 text-left truncate">
+    <div className={cn("w-full group/item flex items-center gap-2 px-3 py-2.5 rounded-lg transition-all", active ? "bg-[#EFF6FF] text-[#2563EB]" : "hover:bg-[#F9FAFB] text-[#1A1D23]")}>
+      <button onClick={onSelect} className="flex-1 text-left truncate cursor-pointer">
         <p className="text-[13px] font-medium truncate">{session.title || "Untitled Chat"}</p>
       </button>
-      {active && <div className="w-1.5 h-1.5 rounded-full bg-ai-violet shrink-0" />}
+      {active && <div className="w-1.5 h-1.5 rounded-full bg-[#2563EB] shrink-0" />}
       <div className="hidden group-hover/item:flex items-center gap-1">
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onArchive(); }}>
-          <Archive size={12} className="text-muted-foreground hover:text-foreground" />
+          <Archive size={12} className="text-[#9CA3AF] hover:text-[#1A1D23]" />
         </Button>
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
-          <Trash2 size={12} className="text-muted-foreground hover:text-red-500" />
+          <Trash2 size={12} className="text-[#9CA3AF] hover:text-[#DC2626]" />
         </Button>
       </div>
     </div>
@@ -369,13 +439,13 @@ function ChatMessage({ role, content, onStockClick }: { role: "user" | "assistan
 function ActivityFeedPanel({ feed }: { feed: ActivityFeedItem[] }) {
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="flex flex-col h-full overflow-hidden">
-      <header className="p-5 border-b border-border flex items-center gap-2 bg-card shrink-0">
-        <Activity size={18} className="text-ai-violet" />
-        <h3 className="font-bold text-sm tracking-tight">Activity Feed</h3>
+      <header className="p-5 border-b border-[#E2E6EA] flex items-center gap-2 bg-white shrink-0">
+        <Activity size={18} className="text-[#7C3AED]" />
+        <h3 className="font-bold text-sm text-[#1A1D23] tracking-tight">Activity Feed</h3>
       </header>
       <div className="flex-1 overflow-y-auto p-5 space-y-6">
         {feed.length === 0 ? (
-          <div className="text-center text-muted-foreground text-xs pt-10">
+          <div className="text-center text-[#9CA3AF] text-xs pt-10">
             Start a conversation to see AI reasoning...
           </div>
         ) : (

@@ -2,8 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Clock,
   ExternalLink,
+  TrendingUp,
+  Clock,
+  ShieldCheck,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -82,12 +85,11 @@ export function StockDetailsPanel({
         {activeMainTab === "News" && <NewsTab ticker={ticker} />}
       </div>
 
-      <div className="p-3 bg-secondary/20 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground shrink-0">
+      <div className="p-3 bg-secondary/20 border-t border-border flex items-center text-[10px] text-muted-foreground shrink-0">
         <div className="flex items-center gap-1">
           <Clock size={10} />
           <span>Feb 3 11:13:05</span>
         </div>
-        <ExternalLink size={12} className="hover:text-primary cursor-pointer transition-colors" />
       </div>
     </motion.div>
   );
