@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Activity,
   CheckCircle2,
@@ -21,7 +21,8 @@ import {
   AlertTriangle,
   Terminal,
   Wifi,
-  Loader2
+  Loader2,
+  Ban
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -34,9 +35,19 @@ import {
   LineChart,
   Line
 } from "recharts";
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  Marker,
+  ZoomableGroup
+} from "react-simple-maps";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { getMarketDiagnosticData, hasMarketDiagnosticData } from "@/data/market-diagnostics";
+
+const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 type DiagnosticState = "map" | "running" | "results";
 
@@ -46,8 +57,7 @@ interface Market {
   code: string;
   region: string;
   status: "active" | "maintenance" | "closed";
-  x: string;
-  y: string;
+  coordinates: [number, number]; // [longitude, latitude]
   latency?: number;
 }
 
@@ -60,12 +70,12 @@ interface LogEntry {
 
 // --- Market data ---
 const MARKETS: Market[] = [
-  { id: "nyse", name: "New York Stock Exchange", code: "NYSE", region: "AMER", status: "active", x: "29.5%", y: "32%", latency: 12 },
-  { id: "nse", name: "National Stock Exchange of India", code: "NSE", region: "ASIA", status: "active", x: "69.5%", y: "44%", latency: 140 },
-  { id: "cse", name: "Colombo Stock Exchange", code: "CSE", region: "ASIA", status: "closed", x: "71%", y: "50.5%", latency: 165 },
-  { id: "hose", name: "Ho Chi Minh Stock Exchange", code: "HOSE", region: "ASIA", status: "active", x: "78.5%", y: "47%", latency: 175 },
-  { id: "hkg", name: "Hong Kong Stock Exchange", code: "HKG", region: "ASIA", status: "active", x: "81%", y: "40%", latency: 145 },
-  { id: "sgx", name: "Singapore Exchange", code: "SGX", region: "ASIA", status: "maintenance", x: "79%", y: "54%", latency: 130 },
+  { id: "nyse", name: "New York Stock Exchange", code: "NYSE", region: "AMER", status: "active", coordinates: [-74.0060, 40.7128], latency: 12 },
+  { id: "nse", name: "National Stock Exchange of India", code: "NSE", region: "ASIA", status: "active", coordinates: [72.8777, 19.0760], latency: 140 },
+  { id: "cse", name: "Colombo Stock Exchange", code: "CSE", region: "ASIA", status: "closed", coordinates: [79.8612, 6.9271], latency: 165 },
+  { id: "hose", name: "Ho Chi Minh Stock Exchange", code: "HOSE", region: "ASIA", status: "active", coordinates: [106.6297, 10.8231], latency: 175 },
+  { id: "hkg", name: "Hong Kong Stock Exchange", code: "HKG", region: "ASIA", status: "active", coordinates: [114.1694, 22.3193], latency: 145 },
+  { id: "sgx", name: "Singapore Exchange", code: "SGX", region: "ASIA", status: "maintenance", coordinates: [103.8198, 1.3521], latency: 130 },
 ];
 
 // --- Activity Feed log messages (streamed live) ---
@@ -87,104 +97,7 @@ const LOG_MESSAGES: { msg: string; cat: "INFO" | "WARN" | "SUCCESS" }[] = [
   { msg: "Finalizing executive report...", cat: "INFO" },
 ];
 
-// --- Diagnostic Report Data (from investx_diagnostic_v2.json) ---
-const DIAGNOSTIC_DATA = {
-  diagnostic_run: {
-    run_id: "CSE_LK__BASELINE_V2",
-    tool_version: "0.2.0",
-    generated_at: "2026-02-03T00:00:00+05:19",
-    mode: "Full Market Scope",
-    market_id: "CSE_LK",
-    overall_status: "Pilot Ready (Controlled)"
-  },
-  scores: {
-    data_quality: 88,
-    trade_execution: 80,
-    agent_readiness: 78,
-    overall: 82,
-    scoring_notes: [
-      "Scores updated based on Verified Market Data Adjustment, operational News/Dividend pipelines with database archiving, and verified Order/Trade book tracking.",
-      "Overall status is Pilot Ready (Controlled): Suitable for paper trading / limited-capital deployment with monitoring and guardrails; not yet 'set-and-forget' for cross-market portability."
-    ]
-  },
-  assumptions: [
-    { code: "Market Data Adjustment", severity: "Low", statement: "TradingView/tvDatafeed Price Data adjustment mode is Verified for CSE universe.", evidence_grade: "Verified" },
-    { code: "News Sources Operational", severity: "Low", statement: "News ingestion is Operational and archived; source registry and connectors are active.", evidence_grade: "Verified" },
-    { code: "Dividend Pipeline Operational", severity: "Low", statement: "Dividend events pipeline is Operational and archived; events are normalized and available for analytics.", evidence_grade: "Verified" },
-    { code: "Order & Trade Logs Verified", severity: "Low", statement: "Orderbook and Tradebook are sourced via internal verification tools and confirmed for coverage.", evidence_grade: "Verified" }
-  ],
-  warnings: [
-    { code: "DAILY_TIMEFRAME_ONLY", severity: "Medium", details: "Strategies and Learning Engines currently operate on Daily timeframes. Intraday scaling (if needed) requires schema extension and policy updates.", category: "STRATEGY" as const },
-    { code: "EXECUTION_REALISM_GAPS", severity: "Medium", details: "Need to define/validate slippage, fees, partial fills, auction handling, and price gap behavior to improve production robustness.", category: "EXECUTION" as const },
-    { code: "PORTABILITY_RECALIBRATION_NEEDED", severity: "Medium", details: "Cross-market portability requires benchmark mapping and liquidity threshold recalibration (e.g., turnover percentile rules).", category: "DATA" as const },
-    { code: "WA_CONNECTOR_POLICY_UNSPECIFIED", severity: "Low", details: "Chat ingestion method, retention, anonymization, and multilingual handling should be explicitly documented for compliance.", category: "DATA" as const }
-  ],
-  agents: [
-    { agent_id: "Maverick Buying Strategy", agent_type: "Trading", status: "Pilot Ready (Controlled)", reasons: ["Benchmark Lock-in (ASI)", "Currency Scale Dependent Min Turnover"], recommended_actions: ["Replace absolute turnover threshold with percentile-based rule for portability.", "Define benchmark mapping contract for non-CSE markets."], category: "STRATEGY" as const },
-    { agent_id: "Technical Analysis Buying Strategy", agent_type: "Trading", status: "Pilot Ready (Controlled)", reasons: ["Threshold Calibration Required for New Markets"], recommended_actions: ["Ensure thresholds are parameterized and stored per market regime if expanding beyond CSE."], category: "STRATEGY" as const },
-    { agent_id: "Asset Allocation & Trend Follower (AATF)", agent_type: "Trading", status: "Ready (Daily)", reasons: ["Daily Timeframe Only"], recommended_actions: ["If intraday expansion is planned, extend contracts for multi-timeframe signals and execution cadence."], category: "STRATEGY" as const },
-    { agent_id: "Meta-Learning Engine", agent_type: "Trading", status: "Ready (Daily)", reasons: ["Daily Timeframe Only"], recommended_actions: ["Add regime tagging and evaluation policy for non-stationary markets; extend to intraday only if required."], category: "STRATEGY" as const },
-    { agent_id: "Trend Exit (DEMA)", agent_type: "Trading", status: "Ready", reasons: [], recommended_actions: ["Validate sell rule stability under different liquidity regimes."], category: "EXECUTION" as const },
-    { agent_id: "Risk Protection (Stop Loss)", agent_type: "Trading", status: "Ready", reasons: [], recommended_actions: ["Document gap handling and order constraints per market."], category: "EXECUTION" as const },
-    { agent_id: "Chart Pattern Agent", agent_type: "Trading", status: "Ready", reasons: [], recommended_actions: ["Ensure pattern params are versioned and reproducible across data vendors."], category: "EXECUTION" as const },
-    { agent_id: "Social Sentiment Analyst (WA)", agent_type: "Non-Trading", status: "Partial", reasons: ["Policy & Connector Docs Incomplete"], recommended_actions: ["Document ingestion, retention, anonymization, and multilingual plan."], category: "DATA" as const },
-    { agent_id: "Market Eye", agent_type: "Non-Trading", status: "Ready", reasons: [], recommended_actions: ["Maintain source registry health checks, deduplication, and entity-to-ticker mapping QA."], category: "DATA" as const },
-    { agent_id: "Dividend Analytics Agent", agent_type: "Non-Trading", status: "Ready", reasons: [], recommended_actions: ["Automate periodic sampling cross-checks against disclosures."], category: "DATA" as const },
-    { agent_id: "ASI Prediction Agent", agent_type: "Non-Trading", status: "Partial", reasons: ["Data Quality Metrics Not Declared for Model Pipeline"], recommended_actions: ["Implement benchmark data QA metrics (missingness/outliers) and publish model evaluation policy."], category: "DATA" as const },
-    { agent_id: "EquiMind Chat Agent", agent_type: "Non-Trading", status: "Pilot Ready (Controlled)", reasons: ["Knowledge Base Governance Required"], recommended_actions: ["Define Knowledge Base refresh cadence, retrieval policy, and redaction/compliance rules for private data."], category: "STRATEGY" as const }
-  ]
-};
-
-// --- Remediation Plan Data (from investx_remediation_plan_v2.json) ---
-const REMEDIATION_DATA = {
-  objective: "Raise Execution Capability and System Readiness to 85+ while maintaining Data Integrity at 88+ by validating trade simulation accuracy, standardized portfolio management rules, and formalizing governance & portability controls.",
-  timeline_estimates: {
-    fast_path_weeks: "2-4",
-    conservative_weeks: "4-6",
-  },
-  phases: [
-    {
-      phase_name: "Phase 1: Production Guardrails & Monitoring",
-      duration_weeks: "1-2",
-      outcomes: [
-        "Data Freshness and Integrity Standards enforced daily with alerts",
-        "Audit-grade run logs and evidence captured per run",
-        "Operational playbook established for data feed failures"
-      ]
-    },
-    {
-      phase_name: "Phase 2: Execution Realism & Portfolio Lifecycle",
-      duration_weeks: "1-2",
-      outcomes: [
-        "Execution model accounts for slippage, fees, partial fills, and price gaps",
-        "Portfolio Lifecycle Contract defined: Open/Add/Reduce/Close with sizing & risk caps",
-        "Stop-loss and Trend Exit rules integrate cleanly into lifecycle"
-      ]
-    },
-    {
-      phase_name: "Phase 3: Governance, Portability & Compliance",
-      duration_weeks: "1-2",
-      outcomes: [
-        "Signal Contract enforced (Structure, Confidence, Horizon)",
-        "Portability Layer defined (Benchmark mapping & Liquidity normalization)",
-        "Governance documented for Social Data & Knowledge Base (Retention, Privacy, Access)"
-      ]
-    }
-  ],
-  expected_post_remediation_scores: {
-    data_quality: { target: 90, range: [88, 92] },
-    trade_execution: { target: 88, range: [85, 92] },
-    agent_readiness: { target: 86, range: [84, 90] },
-    overall: { target: 88, range: [86, 91] }
-  },
-  top_decisions_required_now: [
-    "Select the Execution Cost/Slippage Baseline Model (Conservative Fixed vs Volume-Participation based).",
-    "Define Price Gap behavior (Market-on-Open, Limit Fallback, or Staged Exit).",
-    "Set Portfolio Risk Caps (Max Risk per Trade, Max Position Size, Max Sector Exposure, Max Daily Loss).",
-    "Decide Portability Priority: Target next market(s) and define Benchmark Mapping + Turnover Policy accordingly.",
-    "Decide whether Daily-Only is sufficient for v1 Launch or whether Intraday Roadmap is required."
-  ]
-};
+// Data is now loaded dynamically per market from @/data/market-diagnostics
 
 // Sparkline data for monitor cards
 const SPARK_DATA = Array.from({ length: 20 }, (_, i) => ({ val: Math.random() * 100 }));
@@ -214,6 +127,11 @@ export function DiagnosticModule() {
     { subject: 'Speed', A: 20, fullMark: 100 },
   ]);
   const logContainerRef = useRef<HTMLDivElement>(null);
+
+  // Tooltip state for map markers
+  const [hoveredMarket, setHoveredMarket] = useState<Market | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const mapContainerRef = useRef<HTMLDivElement>(null);
 
   // Results state
   const [activeTab, setActiveTab] = useState<"DATA" | "EXECUTION" | "STRATEGY">("DATA");
@@ -295,26 +213,36 @@ export function DiagnosticModule() {
     }
   }, [logs]);
 
-  // Derive blockers from warnings + non-ready agents
-  const derivedBlockers: DerivedBlocker[] = [];
+  // Load per-market data dynamically
+  const marketData = selectedMarket ? getMarketDiagnosticData(selectedMarket.id) : null;
+  const diagnosticData = marketData?.diagnostic ?? null;
+  const remediationData = marketData?.remediation ?? null;
 
-  DIAGNOSTIC_DATA.warnings.forEach(w => {
-    derivedBlockers.push({
-      code: w.code,
-      severity: w.severity,
-      category: w.category,
-      recommended_actions: [w.details]
-    });
-  });
+  // Derive blockers from actual blockers + warnings + non-ready agents
+  const derivedBlockers: DerivedBlocker[] = useMemo(() => {
+    if (!diagnosticData) return [];
+    const items: DerivedBlocker[] = [];
 
-  DIAGNOSTIC_DATA.agents.filter(a => a.status !== "Ready").forEach(a => {
-    derivedBlockers.push({
-      code: `${a.agent_id} (${a.status})`,
-      severity: a.status === "Partial" ? "High" : "Medium",
-      category: a.category,
-      recommended_actions: a.recommended_actions
+    // Actual blockers first (high priority)
+    diagnosticData.blockers.forEach(b => {
+      items.push({ code: b.code, severity: b.severity, category: b.category, recommended_actions: b.recommended_actions });
     });
-  });
+
+    // Warnings
+    diagnosticData.warnings.forEach(w => {
+      items.push({ code: w.code, severity: w.severity, category: w.category, recommended_actions: [w.details] });
+    });
+
+    // Non-ready agents (exclude "Ready" and "Not Applicable")
+    diagnosticData.agents
+      .filter(a => !["Ready", "Not Applicable"].includes(a.status))
+      .forEach(a => {
+        const severity = ["Blocked", "Not Available"].includes(a.status) ? "High" : a.status === "Partial" ? "High" : "Medium";
+        items.push({ code: `${a.agent_id} (${a.status})`, severity, category: a.category, recommended_actions: a.recommended_actions });
+      });
+
+    return items;
+  }, [diagnosticData]);
 
   const tabBlockers = derivedBlockers.filter(b => b.category === activeTab);
   const totalPages = Math.ceil(tabBlockers.length / itemsPerPage);
@@ -325,7 +253,7 @@ export function DiagnosticModule() {
 
   const currentBlockers = tabBlockers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  const { scores } = DIAGNOSTIC_DATA;
+  const scores = diagnosticData?.scores ?? { data_quality: 0, trade_execution: 0, agent_readiness: 0, overall: 0, scoring_notes: [] };
   const ringColor = scores.overall >= 80 ? "#10B981" : "#F59E0B";
 
   return (
@@ -405,61 +333,112 @@ export function DiagnosticModule() {
                 </div>
               </div>
 
-              <div className="flex-1 bg-white rounded-3xl border border-[#E2E6EA] shadow-xl relative overflow-hidden group flex items-center justify-center min-h-[400px]">
+              <div ref={mapContainerRef} className="flex-1 bg-white rounded-3xl border border-[#E2E6EA] shadow-xl relative overflow-hidden group min-h-[400px]">
                 {/* Grid Overlay */}
-                <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+                <div className="absolute inset-0 opacity-[0.03] pointer-events-none z-10"
                      style={{
                        backgroundImage: 'linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px)',
                        backgroundSize: '40px 40px'
                      }} />
 
-                {/* World Map SVG */}
-                <div className="absolute inset-0 w-full h-full pointer-events-none">
-                  <svg viewBox="0 0 1008 550" className="w-full h-full fill-slate-100 stroke-slate-300 stroke-1">
-                    <path d="M165.5,58.6c0,0-23.4,6.9-24.8,9.7c-1.4,2.8-15.2,26.2-15.2,26.2l-23.4,15.2c0,0,11,19.3,13.8,20.7 c2.8,1.4,8.3,16.6,8.3,16.6l17.9,13.8l23.4,5.5l15.2-9.7l23.4,2.8c0,0,12.4-15.2,13.8-17.9c1.4-2.8,8.3-27.6,8.3-27.6L240,94.5 l-11-20.7L165.5,58.6z" />
-                    <path d="M226.2,115.2l-23.4,41.4l11,29l29,2.8l26.2-19.3l-12.4-38.6L226.2,115.2z" />
-                    <path d="M57.9,112.4L33.1,134.5l11,38.6l38.6,11l23.4-19.3l-13.8-38.6L57.9,112.4z" />
-                    <path d="M180,180 l50,20 l20,60 l-10,40 l-40,10 l-30,-20 l-10,-60 z" />
-                    <path d="M260,300 l40,10 l20,50 l-10,80 l-40,20 l-30,-40 l-10,-60 z" />
-                    <path d="M520,180 l60,10 l40,50 l10,80 l-20,60 l-50,10 l-40,-50 l-10,-80 z" />
-                    <path d="M480,80 l40,10 l20,30 l-10,20 l-30,10 l-40,-10 l-10,-40 z" />
-                    <path d="M580,80 l180,20 l40,60 l-10,80 l-60,40 l-100,-20 l-60,-60 z" />
-                    <path d="M800,380 l80,10 l20,50 l-10,40 l-60,10 l-40,-40 z" />
-                    <g opacity="0.5" className="fill-slate-200/50">
-                      <path d="M246,140 L260,160 L300,150 L320,180 L300,220 L280,220 L260,260 L280,280 L320,290 L340,320 L320,380 L300,420 L280,440 L260,400 L240,360 L230,320 L220,300 L200,280 L180,260 L140,200 L100,160 L120,140 L160,120 L200,110 L246,140 Z" />
-                      <path d="M480,110 L540,100 L600,100 L700,110 L800,120 L860,140 L880,180 L860,240 L800,280 L760,320 L740,360 L700,380 L660,340 L640,300 L620,320 L600,360 L580,400 L540,360 L520,300 L480,260 L460,220 L440,180 L460,140 L480,110 Z" />
-                      <path d="M820,380 L920,380 L940,420 L900,460 L840,450 L820,380 Z" />
-                      <path d="M680,400 L720,400 L710,430 L690,420 Z" />
-                      <path d="M780,260 L800,260 L790,290 Z" />
-                    </g>
-                  </svg>
-                </div>
+                {/* World Map with react-simple-maps */}
+                <ComposableMap
+                  projection="geoMercator"
+                  projectionConfig={{
+                    scale: 130,
+                    center: [40, 20],
+                  }}
+                  className="w-full h-full"
+                  style={{ width: "100%", height: "100%" }}
+                >
+                  <Geographies geography={GEO_URL}>
+                    {({ geographies }) =>
+                      geographies.map((geo) => (
+                        <Geography
+                          key={geo.rsmKey}
+                          geography={geo}
+                          fill="#E8ECF0"
+                          stroke="#CBD5E1"
+                          strokeWidth={0.5}
+                          style={{
+                            default: { outline: "none" },
+                            hover: { outline: "none", fill: "#D1D8E0" },
+                            pressed: { outline: "none" },
+                          }}
+                        />
+                      ))
+                    }
+                  </Geographies>
 
-                {/* Market Markers */}
-                <div className="absolute inset-0">
+                  {/* Market Markers */}
                   {MARKETS.map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => handleMarketClick(m)}
-                      className="absolute group/point transition-transform hover:scale-125 focus:outline-none -translate-x-1/2 -translate-y-1/2 z-10"
-                      style={{ left: m.x, top: m.y }}
-                    >
-                      <div className={cn(
-                        "w-5 h-5 rounded-full border-2 bg-transparent transition-all shadow-sm",
-                        m.status === "active" ? "border-[#10B981] hover:bg-[#10B981]/10" :
-                        m.status === "maintenance" ? "border-[#F59E0B] hover:bg-[#F59E0B]/10" :
-                        "border-[#DC2626] hover:bg-[#DC2626]/10"
-                      )} />
-
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover/point:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
-                        <div className="bg-[#1A1D23] text-white px-3 py-1.5 rounded-lg text-[10px] font-bold shadow-2xl border border-white/10 flex flex-col items-center">
-                          <span className="text-white/60 text-[8px] uppercase">{m.region}</span>
-                          {m.name}
-                        </div>
-                      </div>
-                    </button>
+                    <Marker key={m.id} coordinates={m.coordinates}>
+                      <g
+                        onClick={() => handleMarketClick(m)}
+                        className="cursor-pointer"
+                        style={{ pointerEvents: "all" }}
+                        onMouseEnter={(e) => {
+                          const rect = mapContainerRef.current?.getBoundingClientRect();
+                          if (rect) {
+                            setTooltipPos({
+                              x: e.clientX - rect.left,
+                              y: e.clientY - rect.top,
+                            });
+                          }
+                          setHoveredMarket(m);
+                        }}
+                        onMouseLeave={() => setHoveredMarket(null)}
+                      >
+                        {/* Pulse ring animation */}
+                        <circle
+                          r={12}
+                          fill="transparent"
+                          stroke={
+                            m.status === "active" ? "#10B981" :
+                            m.status === "maintenance" ? "#F59E0B" : "#DC2626"
+                          }
+                          strokeWidth={1}
+                          opacity={0.3}
+                        >
+                          <animate attributeName="r" from="8" to="16" dur="2s" repeatCount="indefinite" />
+                          <animate attributeName="opacity" from="0.4" to="0" dur="2s" repeatCount="indefinite" />
+                        </circle>
+                        {/* Marker circle */}
+                        <circle
+                          r={6}
+                          fill="transparent"
+                          stroke={
+                            m.status === "active" ? "#10B981" :
+                            m.status === "maintenance" ? "#F59E0B" : "#DC2626"
+                          }
+                          strokeWidth={2.5}
+                        />
+                        {/* Invisible larger hit area for easier hover */}
+                        <circle r={14} fill="transparent" />
+                      </g>
+                    </Marker>
                   ))}
-                </div>
+                </ComposableMap>
+
+                {/* HTML Tooltip Overlay */}
+                {hoveredMarket && (
+                  <div
+                    className="absolute z-20 pointer-events-none"
+                    style={{
+                      left: tooltipPos.x,
+                      top: tooltipPos.y,
+                      transform: "translate(-50%, -100%) translateY(-16px)",
+                    }}
+                  >
+                    <div className="bg-white rounded-xl shadow-2xl border border-[#E2E6EA] px-5 py-3 flex flex-col items-center gap-1 min-w-[120px]">
+                      <span className="text-sm font-black text-[#1A1D23] tracking-tight">{hoveredMarket.code}</span>
+                      <span className="text-[11px] text-[#6B7280] font-medium">{hoveredMarket.name.split(" ")[0]}</span>
+                    </div>
+                    <div className="flex justify-center">
+                      <div className="w-2.5 h-2.5 bg-white border-b border-r border-[#E2E6EA] rotate-45 -mt-[6px]" />
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -652,7 +631,7 @@ export function DiagnosticModule() {
                     </div>
                     <div className="flex items-center gap-3">
                       <h1 className="text-3xl font-bold text-[#1A1D23]">
-                        {DIAGNOSTIC_DATA.diagnostic_run.overall_status}
+                        {diagnosticData?.diagnostic_run.overall_status ?? "Unknown"}
                       </h1>
                       {scores.overall >= 80 ? (
                         <CheckCircle2 size={32} className="text-[#10B981]" />
@@ -798,12 +777,12 @@ export function DiagnosticModule() {
 
                     <div className="flex items-baseline gap-2 mb-6">
                       <span className="text-5xl font-black text-[#1A1D23]">
-                        {REMEDIATION_DATA.timeline_estimates.fast_path_weeks.split('-')[0]} - {REMEDIATION_DATA.timeline_estimates.conservative_weeks.split('-')[1]}
+                        {remediationData?.timeline_estimates.fast_path_weeks.split('-')[0]} - {remediationData?.timeline_estimates.conservative_weeks.split('-')[1]}
                       </span>
                       <span className="text-xl font-bold text-[#6B7280]">Weeks</span>
                       <div className="ml-auto text-right">
-                        <div className="text-[11px] font-bold text-[#10B981]">Fast Path: {REMEDIATION_DATA.timeline_estimates.fast_path_weeks} Weeks</div>
-                        <div className="text-[11px] font-bold text-[#6B7280]">Conservative: {REMEDIATION_DATA.timeline_estimates.conservative_weeks} Weeks</div>
+                        <div className="text-[11px] font-bold text-[#10B981]">Fast Path: {remediationData?.timeline_estimates.fast_path_weeks} Weeks</div>
+                        <div className="text-[11px] font-bold text-[#6B7280]">Conservative: {remediationData?.timeline_estimates.conservative_weeks} Weeks</div>
                       </div>
                     </div>
 
@@ -828,7 +807,7 @@ export function DiagnosticModule() {
                     </div>
 
                     <div className="space-y-6 relative before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-[2px] before:bg-[#F1F3F5]">
-                      {REMEDIATION_DATA.phases.map((phase, idx) => (
+                      {(remediationData?.phases ?? []).map((phase, idx) => (
                         <div key={idx} className="relative pl-8">
                           <div className="absolute left-0 top-1.5 w-5 h-5 rounded-full border-2 border-[#E2E6EA] bg-white z-10" />
                           <div className="flex items-center justify-between mb-2">
@@ -919,6 +898,13 @@ export function DiagnosticModule() {
                   </span>
                 </div>
 
+                {!hasMarketDiagnosticData(selectedMarket.id) && (
+                  <div className="flex items-center gap-2 mb-6 px-4 py-3 bg-[#FEF3C7] border border-[#F59E0B]/20 rounded-xl text-[#92400E] text-xs font-medium">
+                    <Ban size={14} className="shrink-0" />
+                    Diagnostic data is not yet available for this market. Assessment will be enabled once the market integration is complete.
+                  </div>
+                )}
+
                 <div className="flex w-full gap-4">
                   <Button
                     variant="outline"
@@ -928,8 +914,9 @@ export function DiagnosticModule() {
                     Cancel
                   </Button>
                   <Button
-                    className="flex-1 h-14 rounded-2xl bg-[#E67E22] hover:bg-[#D35400] text-white font-bold shadow-xl shadow-[#E67E22]/30 flex items-center justify-center"
+                    className="flex-1 h-14 rounded-2xl bg-[#E67E22] hover:bg-[#D35400] text-white font-bold shadow-xl shadow-[#E67E22]/30 flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
                     onClick={startDiagnostic}
+                    disabled={!hasMarketDiagnosticData(selectedMarket.id)}
                   >
                     Run Diagnostic <ArrowRight size={18} className="ml-2" />
                   </Button>

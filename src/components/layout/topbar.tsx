@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -66,6 +66,31 @@ export function Topbar() {
   const { user, logout } = useAuthStore();
   const { toggleSidebar } = useUIStore();
 
+  // Live clock in Sri Lanka timezone (Asia/Colombo, UTC+5:30)
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Format time in Sri Lanka timezone
+  const sriLankaTime = now.toLocaleTimeString("en-US", {
+    timeZone: "Asia/Colombo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  // Determine if CSE market is open (Mon-Fri, 9:30 AM - 2:30 PM Sri Lanka time)
+  const sriLankaDate = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Colombo" }));
+  const dayOfWeek = sriLankaDate.getDay(); // 0=Sun, 6=Sat
+  const hours = sriLankaDate.getHours();
+  const minutes = sriLankaDate.getMinutes();
+  const totalMinutes = hours * 60 + minutes;
+  const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+  const isMarketOpen = isWeekday && totalMinutes >= 570 && totalMinutes < 870; // 9:30=570, 14:30=870
+
   return (
     <header className="h-12 border-b border-[#E2E6EA] bg-white flex items-center justify-between px-4 z-40 relative shrink-0 gap-4">
       {/* Mobile/Sidebar Toggle */}
@@ -114,13 +139,21 @@ export function Topbar() {
       <div className="flex items-center gap-4 shrink-0">
         {/* Market status indicator */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-green-50 text-green-700 px-2.5 py-1 rounded-full text-xs font-medium">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-            CSE Market: OPEN
+          <div className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
+            isMarketOpen
+              ? "bg-green-50 text-green-700"
+              : "bg-red-50 text-red-700"
+          )}>
+            <span className={cn(
+              "h-1.5 w-1.5 rounded-full",
+              isMarketOpen ? "bg-green-500" : "bg-red-500"
+            )} />
+            CSE Market: {isMarketOpen ? "OPEN" : "CLOSED"}
           </div>
           <div className="flex items-center gap-1 text-xs text-gray-500">
             <Clock className="h-3 w-3" />
-            <span>14:32</span>
+            <span>{sriLankaTime}</span>
           </div>
         </div>
 
