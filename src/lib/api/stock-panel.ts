@@ -159,9 +159,12 @@ export const StockPanelAPI = {
     );
   },
   fetchChartCandlePatterns: async (data: SymbolData) => {
-    return fetchAPI<ChartCandlePatternsData>(`/api/v1/stock-info/top-cnc-patterns/${data.symbol}`, {
-      method: "GET",
-    });
+    return fetchAPI<ChartCandlePatternsData>(
+      `/api/v1/stock-info/top-cnc-patterns/${data.symbol}`,
+      {
+        method: "GET",
+      },
+    );
   },
 };
 
@@ -179,7 +182,7 @@ export const OrderBookAPI = {
 
 export const TradeAnalysisAPI = {
   fetchDividendData: async (data: SymbolData) => {
-    return fetchAPI<DividendData>(
+    return fetchAPI<DividendData[]>(
       `/api/dividend-history/history/${data.symbol}`,
       {
         method: "GET",

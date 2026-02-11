@@ -397,7 +397,7 @@ export interface DividendData {
   announcement_date: string;
   rate_of_dividend: number;
   xd_date: string;
-  stats: DividendStats;
+  stats?: DividendStats;
 }
 
 export interface CandlestickPattern {

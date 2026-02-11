@@ -45,11 +45,11 @@ export function CompanyDetails({ ticker }: { ticker: string }) {
                     value={companyData?.basic_info.sector || ''}
                     loading={companyLoading}
                 />
-                <InfoRow
+                {/* <InfoRow
                     label="Dividend Yield"
                     value={companyData?.financial_metrics.dividend_yield ? `${companyData.financial_metrics.dividend_yield}%` : ''}
                     loading={companyLoading}
-                />
+                /> */}
                 <InfoRow
                     label="Market Cap"
                     value={companyData?.basic_info.market_cap_millions ? formatNumber(companyData.basic_info.market_cap_millions) : ''}

@@ -18,6 +18,7 @@ import { OrderBookTab } from './stock-details-components/order-book-tab';
 import { NewsTab } from './stock-details-components/news-tab';
 import { CompanyDetails } from './stock-details-components/company-details';
 import { PatternAnalysis } from "./stock-details-components/pattern-analysis";
+import { DividendHistory } from "./stock-details-components/dividend-history";
 
 export function StockDetailsPanel({
   ticker,
@@ -63,28 +64,32 @@ export function StockDetailsPanel({
       {showHeader && (
         <StockHeader ticker={ticker} onClose={onClose} stockData={stockData} />
       )}
-      <CompanyDetails ticker={ticker} />
-      <PatternAnalysis ticker={ticker} />
-      <div className="flex items-center justify-between px-4 border-b border-border bg-card/95 backdrop-blur-sm sticky top-0 z-10 shrink-0">
-        <div className="flex gap-4">
-          {["Order Book", "Sentiment", "Special Patterns", "News"].map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveMainTab(tab)}
-              className={cn(
-                "py-3 text-[11px] font-bold transition-all relative whitespace-nowrap cursor-pointer",
-                activeMainTab === tab ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-hide">
-        {activeMainTab === "Order Book" && <OrderBookTab ticker={ticker} />}
-        {activeMainTab === "News" && <NewsTab ticker={ticker} />}
+        <CompanyDetails ticker={ticker} />
+        <PatternAnalysis ticker={ticker} />
+        <DividendHistory ticker={ticker} />
+        <div className="flex items-center justify-between px-4 border-b border-border bg-card/95 backdrop-blur-sm sticky top-0 z-10 shrink-0">
+          <div className="flex gap-4">
+            {["Order Book", "Sentiment", "Special Patterns", "News"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveMainTab(tab)}
+                className={cn(
+                  "py-3 text-[11px] font-bold transition-all relative whitespace-nowrap cursor-pointer",
+                  activeMainTab === tab ? "text-primary border-b-2 border-primary" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          {activeMainTab === "Order Book" && <OrderBookTab ticker={ticker} />}
+          {activeMainTab === "News" && <NewsTab ticker={ticker} />}
+        </div>
       </div>
 
       <div className="p-3 bg-secondary/20 border-t border-border flex items-center text-[10px] text-muted-foreground shrink-0">

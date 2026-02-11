@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { StockPanelAPI } from '@/lib/api/stock-panel';
 import { useState, useEffect } from 'react';
 import { PatternAnalysis } from './pattern-analysis';
+import { DividendHistory } from './dividend-history';
 
 interface StockHeaderProps {
     ticker: string;
