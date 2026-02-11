@@ -56,8 +56,8 @@ export function PatternAnalysis({ ticker }: PatternAnalysisProps) {
                         <span className="text-xs text-muted-foreground">{candlePatterns.analysis_date}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-x-8 gap-y-1 mb-2">
-                        <InfoRow label="Sentiment" value={candlePatterns.overall_sentiment} color={candlePatterns.overall_sentiment === 'Bearish' ? 'text-loss' : 'text-gain'} loading={candlePatternsLoading} />
-                        <InfoRow label="Current Price" value={candlePatterns.current_price?.toFixed(2) || 'N/A'} loading={candlePatternsLoading} />
+                        <InfoRow label="Overall Sentiment" value={candlePatterns.overall_sentiment} color={candlePatterns.overall_sentiment === 'Bearish' ? 'text-loss' : 'text-gain'} loading={candlePatternsLoading} />
+                        {/* <InfoRow label="Current Price" value={candlePatterns.current_price?.toFixed(2) || 'N/A'} loading={candlePatternsLoading} /> */}
                         <InfoRow label="Entry Price" value={candlePatterns.entry_price?.toFixed(2) || 'N/A'} loading={candlePatternsLoading} />
                         <InfoRow label="Stop Loss" value={candlePatterns.stop_loss?.toFixed(2) || 'N/A'} color="text-loss" loading={candlePatternsLoading} />
                         <InfoRow label="Target Price" value={candlePatterns.target_price?.toFixed(2) || 'N/A'} color="text-gain" loading={candlePatternsLoading} />
