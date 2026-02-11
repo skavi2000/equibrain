@@ -80,7 +80,6 @@ export function StockHeader({ ticker, onClose, stockData }: StockHeaderProps) {
                         {stockData ? <span className={cn("text-sm font-bold", stockData.change_pct >= 0 ? "text-gain" : "text-loss")}>{stockData.change_pct > 0 ? '+' : ''}{(stockData.change_pct).toFixed(2)}%</span> : <Skeleton className="h-4 w-10" />}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-muted-foreground font-medium">Market: OPEN</span>
                         <div className="flex items-center gap-1">
                             {stockData ? <span className="bg-primary px-1 rounded-[2px] text-[8px] text-white font-bold uppercase">{stockData.market}</span> : <Skeleton className="h-3 w-8" />}
                             <Sparkles size={10} className="text-primary" />
