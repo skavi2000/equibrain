@@ -4,6 +4,7 @@ import { OHLCVData, AnalysisData } from '@/types/stock-panel';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StockPanelAPI } from '@/lib/api/stock-panel';
 import { useState, useEffect } from 'react';
+import { PatternAnalysis } from './pattern-analysis';
 
 interface StockHeaderProps {
     ticker: string;
@@ -113,7 +114,6 @@ export function StockHeader({ ticker, onClose, stockData }: StockHeaderProps) {
                     loading={analysisLoading}
                 />
             </div>
-
         </div>
     );
 }

@@ -11,6 +11,7 @@ import {
   CompanyData,
   DividendData,
   VolumeByDateData,
+  ChartCandlePatternsData,
 } from "@/types/stock-panel";
 
 const API_Base_URL = process.env.NEXT_PUBLIC_API_BACKEND_URL || "";
@@ -156,6 +157,11 @@ export const StockPanelAPI = {
         method: "GET",
       },
     );
+  },
+  fetchChartCandlePatterns: async (data: SymbolData) => {
+    return fetchAPI<ChartCandlePatternsData>(`/api/v1/stock-info/top-cnc-patterns/${data.symbol}`, {
+      method: "GET",
+    });
   },
 };
 

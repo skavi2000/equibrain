@@ -399,3 +399,58 @@ export interface DividendData {
   xd_date: string;
   stats: DividendStats;
 }
+
+export interface CandlestickPattern {
+  id: number;
+  pattern_analysis_id: number;
+  pattern_type: string;
+  pattern_name: string;
+  occurring_date: string;
+  detection_reliability: number;
+  direction: string;
+  suggested_action: string;
+  action_price_level: number;
+  signal_confidence: number;
+  rationale: string;
+  backtest_occurrences: number;
+  backtest_last_occurrence: string;
+  backtest_hit_rate: number;
+  backtest_avg_max_gain: number;
+  backtest_avg_max_drawdown: number;
+  backtest_forward_window_days: number;
+  backtest_success_threshold: number;
+}
+
+export interface ChartPattern {
+  id?: number;
+  pattern_analysis_id?: number;
+  pattern_type?: string;
+  pattern_name?: string;
+  occurring_date?: string;
+  detection_reliability?: number;
+  direction?: string;
+  suggested_action?: string;
+  action_price_level?: number;
+  signal_confidence?: number;
+  rationale?: string;
+  backtest_occurrences?: number;
+  backtest_last_occurrence?: string;
+  backtest_hit_rate?: number;
+  backtest_avg_max_gain?: number;
+  backtest_avg_max_drawdown?: number;
+  backtest_forward_window_days?: number;
+  backtest_success_threshold?: number;
+}
+
+export interface ChartCandlePatternsData {
+  analysis_date: string;
+  overall_sentiment: string;
+  recommended_action: string;
+  stop_loss: number | null;
+  target_price: number | null;
+  entry_price: number | null;
+  current_price: number | null;
+  symbol: string;
+  chart_pattern: ChartPattern;
+  candlestick_pattern: CandlestickPattern;
+}

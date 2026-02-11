@@ -17,6 +17,7 @@ import { StockHeader } from './stock-details-components/stock-header';
 import { OrderBookTab } from './stock-details-components/order-book-tab';
 import { NewsTab } from './stock-details-components/news-tab';
 import { CompanyDetails } from './stock-details-components/company-details';
+import { PatternAnalysis } from "./stock-details-components/pattern-analysis";
 
 export function StockDetailsPanel({
   ticker,
@@ -63,6 +64,7 @@ export function StockDetailsPanel({
         <StockHeader ticker={ticker} onClose={onClose} stockData={stockData} />
       )}
       <CompanyDetails ticker={ticker} />
+      <PatternAnalysis ticker={ticker} />
       <div className="flex items-center justify-between px-4 border-b border-border bg-card/95 backdrop-blur-sm sticky top-0 z-10 shrink-0">
         <div className="flex gap-4">
           {["Order Book", "Sentiment", "Special Patterns", "News"].map((tab) => (
